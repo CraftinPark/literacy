@@ -1,0 +1,6 @@
+Gate B for B10
+clean baseline test result : PASS
+shipped (bugged) result   : test-driver
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+FAIL: lru_put(c, "k", "", 0, 0) == 0 (line 159)

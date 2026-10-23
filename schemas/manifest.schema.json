@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://readcode.example/schemas/manifest.schema.json",
+  "title": "ReadCode provenance manifest (internal: source, checks, review)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "source", "baseline", "shipped", "bugs", "review"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "license_spdx", "original_sha256"],
+      "properties": {
+        "kind": {"enum": ["scraped", "generated"]},
+        "repo": {"type": "string"},
+        "path": {"type": "string"},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{7,40}$"},
+        "license_spdx": {"type": "string", "minLength": 1},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "original_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      },
+      "if": {"properties": {"kind": {"const": "scraped"}}},
+      "then": {"required": ["repo", "path", "commit", "retrieved_at"]}
+    },
+    "baseline": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sha256", "changes_summary", "gate_a"],
+      "properties": {
+        "path": {"type": "string", "description": "Relative to the example root, e.g. internal/baseline/lru_cache.c"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "changes_summary": {"type": "string"},
+        "gate_a": {
+          "type": "object", "additionalProperties": false,
+          "required": ["passed", "tests_run", "tools"],
+          "properties": {
+            "passed": {"type": "boolean"},
+            "tests_run": {"type": "integer", "minimum": 0},
+            "tools": {"type": "array", "minItems": 1, "items": {"enum": ["asan", "ubsan", "tsan", "valgrind", "test-driver", "static-analyzer"]}},
+            "evidence_file": {"type": "string"}
+          }
+        }
+      }
+    },
+    "shipped": {
+      "type": "array", "minItems": 1,
+      "description": "Pins every file under code/ (paths relative to code/). Editing shipped code invalidates the gates.",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "bugs": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "file", "line", "change", "gate_b"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^B[0-9]+$"},
+          "file": {"type": "string"},
+          "line": {"type": "integer", "minimum": 1},
+          "change": {
+            "type": "object", "additionalProperties": false,
+            "required": ["old", "new"],
+            "properties": {"old": {"type": "string"}, "new": {"type": "string"}}
+          },
+          "gate_b": {
+            "type": "object", "additionalProperties": false,
+            "required": ["detected", "detected_by", "evidence_file"],
+            "properties": {
+              "detected": {"type": "boolean"},
+              "detected_by": {"enum": ["asan", "ubsan", "tsan", "valgrind", "test-driver", "static-analyzer", "none"]},
+              "evidence_file": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "rubric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "citations_valid"],
+      "properties": {"version": {"type": "integer", "minimum": 1}, "citations_valid": {"type": "boolean"}}
+    },
+    "pilot_solve": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model", "score", "found_bug_ids", "unlisted_findings"],
+      "properties": {
+        "model": {"type": "string"},
+        "score": {"type": "number", "minimum": 0, "maximum": 100},
+        "found_bug_ids": {"type": "array", "items": {"type": "string", "pattern": "^B[0-9]+$"}},
+        "unlisted_findings": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["pending", "changes_requested", "approved"]},
+        "reviewer": {"type": "string"},
+        "reviewed_at": {"type": "string", "format": "date-time"},
+        "notes": {"type": "string"}
+      },
+      "if": {"properties": {"status": {"const": "approved"}}},
+      "then": {"required": ["reviewer", "reviewed_at"]}
+    },
+    "publish": {
+      "type": "object", "additionalProperties": false,
+      "required": ["version", "published_at"],
+      "properties": {"version": {"type": "integer", "minimum": 1}, "published_at": {"type": "string", "format": "date-time"}}
+    }
+  },
+  "if": {"properties": {"review": {"properties": {"status": {"const": "approved"}}, "required": ["status"]}}, "required": ["review"]},
+  "then": {
+    "required": ["rubric", "pilot_solve"],
+    "properties": {
+      "baseline": {"properties": {"gate_a": {"properties": {"passed": {"const": true}}}}},
+      "rubric": {"properties": {"citations_valid": {"const": true}}}
+    }
+  }
+}

@@ -1,0 +1,6 @@
+Gate B for B3
+clean baseline test result : PASS
+shipped (bugged) result   : test-driver
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+FAIL: c->bytes_used == 0 (line 88)

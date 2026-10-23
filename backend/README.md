@@ -1,50 +1,30 @@
-# Literacy Backend
+# ReadCode backend
 
-Flask-based REST API for the Literacy code-reading platform.
+Python. FastAPI is the chosen web framework (not added yet). For now this folder holds the grader.
 
-## Setup
+## Grader (`grader/`)
 
-1. Create and activate virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+Scores a candidate submission (`schemas/submission.schema.json`) against an example's `key.json` and
+returns a grading report (`schemas/grading-report.schema.json`).
+
+| Layer | File | Uses an LLM? |
+|---|---|---|
+| 1. Where: match bug comments to key bugs by line (+/- 5) or function | `matcher.py` | no |
+| 2. How well: score each answer/bug explanation/fix 0..1 | `judge.py` | yes (FakeJudge for now) |
+| 3. Points: weights, 40/40/20 bug split, red-herring penalty, bonus cap | `score.py` | no |
+
+The judge only returns per-item scores; it never adds up points. Its reply is schema-checked and rejected
+if malformed. Blank answers score 0 whatever the judge says.
+
+```
+cd backend
+../.venv/bin/python -m grader ../examples/readcode-001 tests/fixtures/readcode-001-strong.json
+../.venv/bin/python -m grader ../examples/readcode-001 my-submission.json --json
 ```
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+**Judges.** `FakeJudge` is a word-overlap heuristic: free, offline, repeatable, and *not* a real quality
+judge (paraphrases score low). A real LLM judge is a class with `name` and `judge(request) -> dict`;
+`judge.build_prompt(request)` already produces its prompt. None is wired up yet: no free LLM was
+available on this machine.
 
-3. Seed sample problems:
-```bash
-python seed.py
-```
-
-4. Run the development server:
-```bash
-python app.py
-```
-
-The API will be available at `http://localhost:5000`
-
-## Database
-
-SQLite database is created automatically at `backend/literacy.db` on first run.
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/register` — Register a new user
-- `POST /api/auth/login` — Login user
-- `POST /api/auth/logout` — Logout user
-- `GET /api/auth/me` — Get current user info
-
-### Questions
-- `GET /api/questions` — Get all questions (with filters)
-- `GET /api/questions/<id>` — Get a specific question
-- `POST /api/questions` — Create a new question
-
-### Submissions
-- `POST /api/submissions` — Submit an answer
-- `GET /api/submissions/user/<user_id>` — Get user submissions
-- `GET /api/submissions/<id>` — Get a specific submission
+Tests: `pytest` from the repo root (see `pytest.ini`).

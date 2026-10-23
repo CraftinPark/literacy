@@ -1,0 +1,12 @@
+Gate A: clean baseline must pass every test under ASan+UBSan.
+baseline t0: PASS
+baseline B1: PASS
+baseline B2: PASS
+baseline B3: PASS
+baseline B4: PASS
+baseline B5: PASS
+baseline B6: PASS
+baseline B7: PASS
+baseline B8: PASS
+baseline B9: PASS
+baseline B10: PASS

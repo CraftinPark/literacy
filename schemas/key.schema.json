@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://readcode.example/schemas/key.schema.json",
+  "title": "ReadCode answer key and grading rubric (grader only, never sent to candidates)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "scoring", "comprehension", "bugs", "design", "improvements", "red_herrings", "grader_instructions"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "scoring": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "sections"],
+      "properties": {
+        "total": {"const": 100},
+        "sections": {
+          "type": "object", "additionalProperties": false,
+          "required": ["comprehension", "bugs", "design", "improvements"],
+          "properties": {
+            "comprehension": {"type": "number", "minimum": 0},
+            "bugs": {"type": "number", "minimum": 0},
+            "design": {"type": "number", "minimum": 0},
+            "improvements": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
+    "comprehension": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["question_id", "weight", "key_points"],
+        "properties": {
+          "question_id": {"type": "string", "pattern": "^C[0-9]+$"},
+          "weight": {"type": "number", "exclusiveMinimum": 0},
+          "key_points": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 5}}
+        }
+      }
+    },
+    "bugs": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "title", "severity", "weight", "category", "locations", "description", "mechanism_anchors", "fix"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^B[0-9]+$"},
+          "title": {"type": "string", "minLength": 5},
+          "severity": {"enum": ["low", "medium", "high", "critical"]},
+          "weight": {"type": "number", "exclusiveMinimum": 0},
+          "category": {"type": "string", "minLength": 3},
+          "locations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
+          "description": {"type": "string", "minLength": 20},
+          "mechanism_anchors": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "fix": {"type": "string", "minLength": 5}
+        }
+      }
+    },
+    "design": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["prompt_id", "topic", "weight", "anchors"],
+        "properties": {
+          "prompt_id": {"type": "string", "pattern": "^D[0-9]+$"},
+          "topic": {"type": "string", "minLength": 3},
+          "weight": {"type": "number", "exclusiveMinimum": 0},
+          "anchors": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+        }
+      }
+    },
+    "improvements": {
+      "type": "object", "additionalProperties": false,
+      "required": ["weight", "expected_themes"],
+      "properties": {
+        "weight": {"type": "number", "minimum": 0},
+        "expected_themes": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["theme", "weight"],
+            "properties": {"theme": {"type": "string", "minLength": 5}, "weight": {"type": "number", "exclusiveMinimum": 0}}
+          }
+        }
+      }
+    },
+    "red_herrings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["description"],
+        "properties": {
+          "description": {"type": "string", "minLength": 5},
+          "locations": {"type": "array", "items": {"$ref": "#/$defs/range"}}
+        }
+      }
+    },
+    "bonus": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_points", "items"],
+      "properties": {
+        "max_points": {"type": "number", "minimum": 0},
+        "items": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "grader_instructions": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "range": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file", "start_line", "end_line"],
+      "properties": {
+        "file": {"type": "string"},
+        "function": {"type": "string"},
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://readcode.example/schemas/grading-report.schema.json",
+  "title": "ReadCode grading report (grader output; safe to show the candidate after submission)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "exercise_id", "exercise_version", "candidate_id", "judge", "total", "max_total", "sections", "bugs_found", "bugs_missed", "false_positives", "unlisted_findings", "penalties", "bonus", "coaching_tip"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "exercise_id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
+    "exercise_version": {"type": "integer", "minimum": 1},
+    "candidate_id": {"type": "string"},
+    "judge": {"type": "string", "description": "Which judge produced the soft scores, e.g. 'fake' or a model id."},
+    "total": {"type": "number"},
+    "max_total": {"type": "number"},
+    "sections": {
+      "type": "object", "additionalProperties": false,
+      "required": ["comprehension", "bugs", "design", "improvements"],
+      "properties": {
+        "comprehension": {"$ref": "#/$defs/section"},
+        "bugs": {"$ref": "#/$defs/section"},
+        "design": {"$ref": "#/$defs/section"},
+        "improvements": {"$ref": "#/$defs/section"}
+      }
+    },
+    "bugs_found": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["bug_id", "title", "comment_id", "locate", "mechanism", "fix", "points", "max_points"],
+        "properties": {
+          "bug_id": {"type": "string", "pattern": "^B[0-9]+$"},
+          "title": {"type": "string"},
+          "comment_id": {"type": "string"},
+          "locate": {"type": "number", "minimum": 0, "maximum": 1},
+          "mechanism": {"type": "number", "minimum": 0, "maximum": 1},
+          "fix": {"type": "number", "minimum": 0, "maximum": 1},
+          "points": {"type": "number", "minimum": 0},
+          "max_points": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "bugs_missed": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["bug_id", "title"],
+        "properties": {"bug_id": {"type": "string"}, "title": {"type": "string"}}
+      }
+    },
+    "false_positives": {
+      "description": "Bug comments that claim a listed red herring is a bug.",
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["comment_id", "red_herring", "confidence", "penalty"],
+        "properties": {
+          "comment_id": {"type": "string"},
+          "red_herring": {"type": "string"},
+          "confidence": {"enum": ["guess", "fairly_sure", "certain"]},
+          "penalty": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "unlisted_findings": {
+      "description": "Bug comments matching neither a key bug nor a red herring. Not penalized; queued for human review.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "penalties": {"type": "number", "minimum": 0},
+    "bonus": {"type": "number", "minimum": 0},
+    "coaching_tip": {"type": "string"}
+  },
+  "$defs": {
+    "section": {
+      "type": "object", "additionalProperties": false,
+      "required": ["score", "max"],
+      "properties": {"score": {"type": "number", "minimum": 0}, "max": {"type": "number", "minimum": 0}}
+    }
+  }
+}

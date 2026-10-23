@@ -1,0 +1,48 @@
+{
+  "gate_a": {
+    "passed": true,
+    "tests_run": 11
+  },
+  "gate_b": {
+    "B1": {
+      "detected": true,
+      "detected_by": "asan"
+    },
+    "B2": {
+      "detected": true,
+      "detected_by": "asan"
+    },
+    "B3": {
+      "detected": true,
+      "detected_by": "test-driver"
+    },
+    "B4": {
+      "detected": true,
+      "detected_by": "test-driver"
+    },
+    "B5": {
+      "detected": true,
+      "detected_by": "test-driver"
+    },
+    "B6": {
+      "detected": true,
+      "detected_by": "test-driver"
+    },
+    "B7": {
+      "detected": true,
+      "detected_by": "test-driver"
+    },
+    "B8": {
+      "detected": true,
+      "detected_by": "ubsan"
+    },
+    "B9": {
+      "detected": true,
+      "detected_by": "ubsan"
+    },
+    "B10": {
+      "detected": true,
+      "detected_by": "test-driver"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "exercise_id": "readcode-001",
+  "exercise_version": 1,
+  "candidate_id": "fixture-strong",
+  "time_spent_minutes": 38,
+  "comprehension": {
+    "C1": "A hash table with chaining gives O(1) lookup by key. A doubly linked list tracks recency so the LRU victim at the tail is found and removed in O(1). Each entry is in both a hash chain and the recency list at the same time (intrusive links).",
+    "C2": "It copies the value, allocates an entry, inserts it into the bucket and at the list head, increments count and bytes_used, then a loop evicts from the tail until both the count and byte limits are satisfied. The eviction callback is invoked for each victim.",
+    "C3": "pp points at the link that points to the current node: either the bucket slot or the previous node's hash_next. Unlinking is just *pp = e->hash_next, with no special case for the head of the chain.",
+    "C4": "put copies the value in and get copies it out, so the caller never holds a pointer into the cache. The cache frees its copies on delete, evict, expire and destroy. The key is copied into a fixed-size inline array."
+  },
+  "bugs": [
+    {"id": "c1", "function": "evict_tail", "locations": [{"file": "lru_cache.c", "start_line": 198, "end_line": 202}],
+     "severity": "critical", "confidence": "certain",
+     "explanation": "entry_free(victim) runs before the callback, so the callback gets the freed key and value: use after free, victim used after free, dangling pointer.",
+     "fix": "Invoke the callback first, then free the entry."},
+    {"id": "c2", "function": "lru_purge_expired", "locations": [{"file": "lru_cache.c", "start_line": 398, "end_line": 400}],
+     "severity": "critical", "confidence": "certain",
+     "explanation": "drop_expired frees e, then the loop increment reads e->prev from freed memory: use after free of the loop iterator.",
+     "fix": "Save prev = e->prev before calling drop_expired."},
+    {"id": "c3", "function": "drop_expired", "locations": [{"file": "lru_cache.c", "start_line": 175, "end_line": 182}],
+     "severity": "high", "confidence": "fairly_sure",
+     "explanation": "The expiry path never decrements bytes_used, so accounting drifts upward and the eviction loop can spin forever.",
+     "fix": "Subtract value_len from bytes_used in drop_expired."},
+    {"id": "c4", "function": "lru_put", "locations": [{"file": "lru_cache.c", "start_line": 266, "end_line": 266}],
+     "severity": "high", "confidence": "certain",
+     "explanation": "Key length off by one: a 64-char key passes the check and strncpy leaves it unterminated.",
+     "fix": "Reject strlen(key) >= LRU_MAX_KEY_LEN."},
+    {"id": "c5", "function": "lru_create", "locations": [{"file": "lru_cache.c", "start_line": 223, "end_line": 224}],
+     "severity": "medium", "confidence": "certain",
+     "explanation": "If the bucket calloc fails the function returns NULL without freeing c: leak of the cache struct.",
+     "fix": "free(c) before returning NULL."}
+  ],
+  "design": {
+    "D1": "Every get mutates the recency list, so a read-write lock does not help. Shard the cache by hash into N independent caches with their own locks, or use approximate LRU (CLOCK) to avoid a list update on every hit. Measure contention before optimizing.",
+    "D2": "Re-entrancy deadlock if the callback calls lru_* because the mutex is non-recursive, and a slow callback blocks all threads. Collect victims and invoke callbacks after unlocking, and document callback restrictions."
+  },
+  "improvements": [
+    {"title": "Factor one remove_entry() helper", "detail": "Used by delete, evict and expire to keep accounting in one place."},
+    {"title": "Add tests", "detail": "Sanitizers (ASan, UBSan, TSan), Valgrind, and a stress test with invariant checks on count and bytes_used."}
+  ]
+}

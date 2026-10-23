@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "readcode-001",
+  "version": 1,
+  "title": "Thread-safe LRU cache",
+  "language": "c",
+  "difficulty": "medium",
+  "topics": [
+    "memory-safety",
+    "pointer-manipulation",
+    "data-structures",
+    "concurrency",
+    "api-design",
+    "resource-management"
+  ],
+  "estimated_minutes": 30,
+  "files": [
+    {
+      "path": "lru_cache.c",
+      "line_count": 502
+    }
+  ],
+  "license": {
+    "spdx": "LicenseRef-ReadCode-Original",
+    "attribution": "Original ReadCode exercise"
+  },
+  "questions": [
+    {
+      "id": "C1",
+      "text": "Describe the data structures used and why two are needed."
+    },
+    {
+      "id": "C2",
+      "text": "Walk through what lru_put does when the key is new and the cache is full."
+    },
+    {
+      "id": "C3",
+      "text": "Explain what the pointer-to-pointer in hash_remove does and why it is used."
+    },
+    {
+      "id": "C4",
+      "text": "What are the ownership rules for values and keys?"
+    }
+  ],
+  "design_prompts": [
+    {
+      "id": "D1",
+      "text": "Is a single global mutex appropriate here? What would you do for high contention?"
+    },
+    {
+      "id": "D2",
+      "text": "The eviction callback runs while the cache lock is held. What can go wrong?"
+    },
+    {
+      "id": "D3",
+      "text": "Values are copied in and out of the cache. What are the trade-offs versus handing out a pointer?"
+    },
+    {
+      "id": "D4",
+      "text": "How does the cache account for memory? Is the byte limit an accurate bound?"
+    },
+    {
+      "id": "D5",
+      "text": "How is expiry implemented, and what are its costs?"
+    }
+  ]
+}

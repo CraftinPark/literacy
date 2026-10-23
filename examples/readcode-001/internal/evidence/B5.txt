@@ -1,0 +1,6 @@
+Gate B for B5
+clean baseline test result : PASS
+shipped (bugged) result   : test-driver
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+FAIL: present(c, "a") && !present(c, "b") (line 110)
