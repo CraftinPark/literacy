@@ -1,0 +1,6 @@
+Gate B for B6
+clean baseline test result : PASS
+shipped (bugged) result   : test-driver
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+FAIL: g_live == 0 (line 119)

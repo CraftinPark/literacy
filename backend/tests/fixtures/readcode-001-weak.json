@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "exercise_id": "readcode-001",
+  "exercise_version": 1,
+  "candidate_id": "fixture-weak",
+  "time_spent_minutes": 30,
+  "comprehension": {
+    "C1": "It uses a hash map and a list."
+  },
+  "bugs": [
+    {"id": "c1", "function": "evict_tail", "locations": [{"file": "lru_cache.c", "start_line": 199, "end_line": 201}],
+     "severity": "medium", "confidence": "guess",
+     "explanation": "Something looks off with the callback order here."},
+    {"id": "c2", "function": "lru_create", "locations": [{"file": "lru_cache.c", "start_line": 221, "end_line": 221}],
+     "severity": "high", "confidence": "certain",
+     "explanation": "nbuckets = capacity with the LRU_MIN_BUCKETS floor is wrong, the bucket count should be a prime."}
+  ],
+  "design": {},
+  "improvements": [
+    {"title": "Add comments"}
+  ]
+}

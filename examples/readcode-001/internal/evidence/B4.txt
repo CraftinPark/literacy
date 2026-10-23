@@ -1,0 +1,6 @@
+Gate B for B4
+clean baseline test result : PASS
+shipped (bugged) result   : test-driver
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+FAIL: rc == -EINVAL || (rc == 0 && lru_get(c, key, b, sizeof b, &n) == 0) (line 99)

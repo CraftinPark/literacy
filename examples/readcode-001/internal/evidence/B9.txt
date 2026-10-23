@@ -1,0 +1,6 @@
+Gate B for B9
+clean baseline test result : PASS
+shipped (bugged) result   : ubsan
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+<example>/code/lru_cache.c:351:14: runtime error: store to null pointer of type 'size_t'

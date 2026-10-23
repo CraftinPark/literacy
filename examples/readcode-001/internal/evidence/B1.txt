@@ -1,0 +1,20 @@
+Gate B for B1
+clean baseline test result : PASS
+shipped (bugged) result   : asan
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+AddressSanitizer: heap-use-after-free
+=================================================================
+==168==ERROR: AddressSanitizer: heap-use-after-free on address 0x50b000000088 at pc 0x55d15f8cbf52 bp 0x7ffc589eb1b0 sp 0x7ffc589eb1a0
+READ of size 8 at 0x50b000000088 thread T0
+    #0 0x55d15f8cbf51 in evict_tail <example>/code/lru_cache.c:201
+    #1 0x55d15f8cbf51 in lru_put <example>/code/lru_cache.c:309
+    #2 0x55d15f8cc34b in t_B1 <example>/internal/verification/driver.c:65
+    #3 0x55d15f8cf0b4 in main <example>/internal/verification/driver.c:174
+    #4 0x7f837922a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: 8e9fd827446c24067541ac5390e6f527fb5947bb)
+    #5 0x7f837922a28a in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: 8e9fd827446c24067541ac5390e6f527fb5947bb)
+    #6 0x55d15f8ca624 in _start (/tmp/rc001_ship+0x8624) (BuildId: 9c858beebcbdca01ff64ca200a702edc6ed8d9b2)
+
+0x50b000000088 is located 72 bytes inside of 112-byte region [0x50b000000040,0x50b0000000b0)
+freed by thread T0 here:
+    #0 0x7f8379efc4d8 in free ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:52

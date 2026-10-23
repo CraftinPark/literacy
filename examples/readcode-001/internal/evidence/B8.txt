@@ -1,0 +1,6 @@
+Gate B for B8
+clean baseline test result : PASS
+shipped (bugged) result   : ubsan
+sanity t0 on shipped code : PASS (ordinary behaviour still works)
+
+<example>/code/lru_cache.c:417:26: runtime error: division by zero

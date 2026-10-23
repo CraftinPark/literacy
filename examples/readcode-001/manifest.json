@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "id": "readcode-001",
+  "source": {
+    "kind": "generated",
+    "license_spdx": "LicenseRef-ReadCode-Original",
+    "original_sha256": "0d3c9def277aa910b8510dc20a52e66beadcf9e8d9e62dc89ca1cbf7346d9864"
+  },
+  "baseline": {
+    "path": "internal/baseline/lru_cache.c",
+    "sha256": "0d3c9def277aa910b8510dc20a52e66beadcf9e8d9e62dc89ca1cbf7346d9864",
+    "changes_summary": "Reference solution: the shipped file with the 10 seeded bugs reverted. Minor unseeded issues listed in key.bonus remain.",
+    "gate_a": {
+      "passed": true,
+      "tests_run": 11,
+      "tools": [
+        "asan",
+        "ubsan",
+        "test-driver"
+      ],
+      "evidence_file": "internal/evidence/gate_a.txt"
+    }
+  },
+  "shipped": [
+    {
+      "path": "lru_cache.c",
+      "sha256": "aee510c1e9cb3429a82cce77462f6a4cd012d11ce35e2d2f100a1edda282efdc"
+    }
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "file": "lru_cache.c",
+      "line": 198,
+      "change": {
+        "old": "    if (c->on_evict)\n        c->on_evict(victim->key, victim->value, victim->value_len,\n                    c->evict_ctx);\n\n    entry_free(victim);",
+        "new": "    entry_free(victim);\n\n    if (c->on_evict)\n        c->on_evict(victim->key, victim->value, victim->value_len,\n                    c->evict_ctx);"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "asan",
+        "evidence_file": "internal/evidence/B1.txt"
+      }
+    },
+    {
+      "id": "B2",
+      "file": "lru_cache.c",
+      "line": 398,
+      "change": {
+        "old": "    for (e = c->tail; e; e = prev) {\n        prev = e->prev;",
+        "new": "    for (e = c->tail; e; e = e->prev) {"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "asan",
+        "evidence_file": "internal/evidence/B2.txt"
+      }
+    },
+    {
+      "id": "B3",
+      "file": "lru_cache.c",
+      "line": 179,
+      "change": {
+        "old": "    c->count--;\n    c->bytes_used -= e->value_len;\n    c->stats.expirations++;",
+        "new": "    c->count--;\n    c->stats.expirations++;"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B3.txt"
+      }
+    },
+    {
+      "id": "B4",
+      "file": "lru_cache.c",
+      "line": 266,
+      "change": {
+        "old": "    if (strlen(key) >= LRU_MAX_KEY_LEN)",
+        "new": "    if (strlen(key) > LRU_MAX_KEY_LEN)"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B4.txt"
+      }
+    },
+    {
+      "id": "B5",
+      "file": "lru_cache.c",
+      "line": 289,
+      "change": {
+        "old": "        c->bytes_used += len;\n        list_move_front(c, e);\n    } else {",
+        "new": "        c->bytes_used += len;\n    } else {"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B5.txt"
+      }
+    },
+    {
+      "id": "B6",
+      "file": "lru_cache.c",
+      "line": 223,
+      "change": {
+        "old": "    if (!c->buckets) {\n        free(c);\n        return NULL;\n    }",
+        "new": "    if (!c->buckets)\n        return NULL;"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B6.txt"
+      }
+    },
+    {
+      "id": "B7",
+      "file": "lru_cache.c",
+      "line": 249,
+      "change": {
+        "old": "    pthread_mutex_destroy(&c->lock);\n    free(c->buckets);\n    free(c);",
+        "new": "    pthread_mutex_destroy(&c->lock);\n    free(c);"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B7.txt"
+      }
+    },
+    {
+      "id": "B8",
+      "file": "lru_cache.c",
+      "line": 417,
+      "change": {
+        "old": "    return total ? (double)hits / (double)total : 0.0;",
+        "new": "    return c->stats.hits / (c->stats.hits + c->stats.misses);"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "ubsan",
+        "evidence_file": "internal/evidence/B8.txt"
+      }
+    },
+    {
+      "id": "B9",
+      "file": "lru_cache.c",
+      "line": 325,
+      "change": {
+        "old": "    if (!c || !key || !out || !out_len)\n",
+        "new": "    if (!c || !key || !out)\n"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "ubsan",
+        "evidence_file": "internal/evidence/B9.txt"
+      }
+    },
+    {
+      "id": "B10",
+      "file": "lru_cache.c",
+      "line": 274,
+      "change": {
+        "old": "    copy = malloc(len ? len : 1);",
+        "new": "    copy = malloc(len);"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B10.txt"
+      }
+    }
+  ],
+  "review": {
+    "status": "pending"
+  }
+}

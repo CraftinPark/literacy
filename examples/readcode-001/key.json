@@ -1,0 +1,437 @@
+{
+  "schema_version": 1,
+  "id": "readcode-001",
+  "version": 1,
+  "scoring": {
+    "total": 100,
+    "sections": {
+      "comprehension": 20,
+      "bugs": 40,
+      "design": 25,
+      "improvements": 15
+    }
+  },
+  "comprehension": [
+    {
+      "question_id": "C1",
+      "weight": 5,
+      "key_points": [
+        "hash table with chaining gives O(1) lookup by key",
+        "doubly linked list tracks recency so the LRU victim (tail) is found/removed in O(1)",
+        "each entry is simultaneously in a hash chain and in the recency list (intrusive links)"
+      ]
+    },
+    {
+      "question_id": "C2",
+      "weight": 5,
+      "key_points": [
+        "copies the value, allocates an entry, inserts into bucket and at list head",
+        "increments count and bytes_used",
+        "loop evicts from the tail until both count and byte limits are satisfied",
+        "eviction callback is invoked for each victim"
+      ]
+    },
+    {
+      "question_id": "C3",
+      "weight": 5,
+      "key_points": [
+        "pp points at the link that points to the current node (bucket slot or a previous node's hash_next)",
+        "unlinking is *pp = e->hash_next without special-casing the head of the chain"
+      ]
+    },
+    {
+      "question_id": "C4",
+      "weight": 5,
+      "key_points": [
+        "put copies the value in; get copies it out; caller never holds a pointer into the cache",
+        "cache frees its copies on delete, evict, expire, destroy",
+        "key is copied into a fixed-size inline array"
+      ]
+    }
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Use-after-free in evict_tail",
+      "severity": "critical",
+      "weight": 6,
+      "category": "memory-safety",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "evict_tail",
+          "start_line": 198,
+          "end_line": 202
+        }
+      ],
+      "description": "entry_free(victim) is called before the eviction callback, but the callback is passed victim->key, victim->value and victim->value_len, all of which are now freed memory.",
+      "mechanism_anchors": [
+        "freed before callback",
+        "dangling pointer",
+        "victim used after free"
+      ],
+      "fix": "Invoke the callback first (or copy the needed fields), then free the entry."
+    },
+    {
+      "id": "B2",
+      "title": "Use-after-free of loop iterator in lru_purge_expired",
+      "severity": "critical",
+      "weight": 6,
+      "category": "memory-safety",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_purge_expired",
+          "start_line": 398,
+          "end_line": 403
+        }
+      ],
+      "description": "drop_expired() frees e, then the for-loop increment reads e->prev from freed memory.",
+      "mechanism_anchors": [
+        "e->prev after free",
+        "iterator invalidated",
+        "save prev before dropping"
+      ],
+      "fix": "Save prev = e->prev before the (possible) drop, then advance with prev."
+    },
+    {
+      "id": "B3",
+      "title": "Expiry path never decrements bytes_used; accounting drift can cause an infinite loop",
+      "severity": "critical",
+      "weight": 6,
+      "category": "logic / resource-accounting",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "drop_expired",
+          "start_line": 175,
+          "end_line": 182
+        },
+        {
+          "file": "lru_cache.c",
+          "function": "drop_expired",
+          "start_line": 308,
+          "end_line": 309
+        }
+      ],
+      "description": "evict_tail and lru_delete subtract value_len from bytes_used; drop_expired does not. Each expiry leaks accounting. Eventually bytes_used > max_bytes even when the cache is empty, and the while loop in lru_put calls evict_tail forever (it returns immediately when tail == NULL), spinning while holding the mutex.",
+      "mechanism_anchors": [
+        "bytes_used not decremented",
+        "drift",
+        "infinite loop",
+        "evict_tail no-op on empty"
+      ],
+      "fix": "Subtract e->value_len in drop_expired (ideally factor one shared 'remove_entry' helper used by delete/evict/expire). Also make the eviction loop terminate when the list is empty."
+    },
+    {
+      "id": "B4",
+      "title": "Key length off-by-one and unterminated key via strncpy",
+      "severity": "high",
+      "weight": 5,
+      "category": "memory-safety / buffer",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_put",
+          "start_line": 266,
+          "end_line": 266
+        },
+        {
+          "file": "lru_cache.c",
+          "function": "lru_put",
+          "start_line": 297,
+          "end_line": 297
+        }
+      ],
+      "description": "key[] holds LRU_MAX_KEY_LEN bytes including the NUL, so the longest valid key is 63 chars. The check rejects only strlen > 64, so a 64-char key passes; strncpy then copies 64 bytes with no terminator. Later strcmp/hash_key over e->key read past the array into adjacent fields (value pointer bytes).",
+      "mechanism_anchors": [
+        "off-by-one",
+        "no NUL terminator",
+        "strncpy does not terminate",
+        "over-read"
+      ],
+      "fix": "Reject strlen(key) >= LRU_MAX_KEY_LEN, and/or copy with explicit termination (memcpy + e->key[len] = '\\0')."
+    },
+    {
+      "id": "B5",
+      "title": "Updating an existing key does not refresh its recency",
+      "severity": "medium",
+      "weight": 4,
+      "category": "logic",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_put",
+          "start_line": 282,
+          "end_line": 290
+        }
+      ],
+      "description": "The in-place update branch never calls list_move_front. A just-written entry can sit at the tail and be the first eviction victim, violating LRU semantics (including evicting the entry that was just written).",
+      "mechanism_anchors": [
+        "not moved to front",
+        "recency not updated",
+        "just-updated entry evicted"
+      ],
+      "fix": "Call list_move_front(c, e) in the update branch."
+    },
+    {
+      "id": "B6",
+      "title": "Leak of cache struct when bucket allocation fails",
+      "severity": "medium",
+      "weight": 3,
+      "category": "resource-management",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_create",
+          "start_line": 222,
+          "end_line": 224
+        }
+      ],
+      "description": "On calloc failure for buckets the function returns NULL without freeing c.",
+      "mechanism_anchors": [
+        "leak",
+        "free(c)",
+        "error path"
+      ],
+      "fix": "free(c) before returning NULL."
+    },
+    {
+      "id": "B7",
+      "title": "Bucket array leaked in lru_destroy",
+      "severity": "medium",
+      "weight": 3,
+      "category": "resource-management",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_destroy",
+          "start_line": 235,
+          "end_line": 251
+        }
+      ],
+      "description": "Entries and the cache struct are freed but c->buckets is never freed.",
+      "mechanism_anchors": [
+        "buckets not freed",
+        "leak"
+      ],
+      "fix": "free(c->buckets) before free(c)."
+    },
+    {
+      "id": "B8",
+      "title": "lru_hit_ratio: integer division, divide-by-zero, and unsynchronized read",
+      "severity": "high",
+      "weight": 4,
+      "category": "arithmetic / concurrency",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_hit_ratio",
+          "start_line": 415,
+          "end_line": 418
+        }
+      ],
+      "description": "hits and misses are uint64_t so the division is integer division: result is 0 unless hits == total. If both are zero, it is an integer divide-by-zero (SIGFPE). Stats are also read without taking the lock while workers update them (data race).",
+      "mechanism_anchors": [
+        "integer division",
+        "divide by zero",
+        "cast to double",
+        "no lock"
+      ],
+      "fix": "Lock, snapshot hits/misses, return 0.0 if total == 0, otherwise (double)hits / (double)total."
+    },
+    {
+      "id": "B9",
+      "title": "lru_get dereferences out_len without validating it",
+      "severity": "medium",
+      "weight": 2,
+      "category": "input validation",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_get",
+          "start_line": 325,
+          "end_line": 326
+        },
+        {
+          "file": "lru_cache.c",
+          "function": "lru_get",
+          "start_line": 345,
+          "end_line": 345
+        },
+        {
+          "file": "lru_cache.c",
+          "function": "lru_get",
+          "start_line": 351,
+          "end_line": 351
+        }
+      ],
+      "description": "The argument check validates c, key, out but not out_len, which is written unconditionally (NULL dereference). The ENOSPC path also reports 'required size' but does not count as a hit or touch recency.",
+      "mechanism_anchors": [
+        "out_len NULL",
+        "missing null check"
+      ],
+      "fix": "Validate out_len or make it optional."
+    },
+    {
+      "id": "B10",
+      "title": "Zero-length values fail spuriously",
+      "severity": "low",
+      "weight": 1,
+      "category": "edge case",
+      "locations": [
+        {
+          "file": "lru_cache.c",
+          "function": "lru_put",
+          "start_line": 264,
+          "end_line": 265
+        },
+        {
+          "file": "lru_cache.c",
+          "function": "lru_put",
+          "start_line": 274,
+          "end_line": 275
+        },
+        {
+          "file": "lru_cache.c",
+          "function": "lru_put",
+          "start_line": 279,
+          "end_line": 279
+        }
+      ],
+      "description": "malloc(0) may legally return NULL, which is then reported as -ENOMEM; also `!value` rejects NULL for len == 0. Empty values are valid in many use cases.",
+      "mechanism_anchors": [
+        "malloc(0)",
+        "zero length",
+        "ENOMEM spurious"
+      ],
+      "fix": "Allocate max(len, 1) or special-case len == 0."
+    }
+  ],
+  "design": [
+    {
+      "prompt_id": "D1",
+      "topic": "locking granularity",
+      "weight": 6,
+      "anchors": [
+        "every get mutates the recency list so a read-write lock does not help",
+        "shard the cache by hash into N independent caches/locks",
+        "approximate LRU (CLOCK / sampled) to avoid list update on every hit",
+        "contention measured before optimizing"
+      ]
+    },
+    {
+      "prompt_id": "D2",
+      "topic": "callback under lock",
+      "weight": 5,
+      "anchors": [
+        "re-entrancy deadlock if callback calls lru_* (non-recursive mutex)",
+        "slow callback blocks all threads",
+        "collect victims and invoke callbacks after unlocking",
+        "document callback restrictions"
+      ]
+    },
+    {
+      "prompt_id": "D3",
+      "topic": "copy vs borrow semantics",
+      "weight": 5,
+      "anchors": [
+        "copy-out is safe against concurrent eviction/free",
+        "cost grows with value size and adds memcpy under the lock",
+        "refcounted values or handles allow zero-copy reads",
+        "caller must size buffer; ENOSPC protocol requires retry"
+      ]
+    },
+    {
+      "prompt_id": "D4",
+      "topic": "memory accounting",
+      "weight": 4,
+      "anchors": [
+        "bytes_used counts only value payload, not key, entry struct, malloc overhead, buckets",
+        "actual memory footprint exceeds max_bytes",
+        "count entry overhead for a real budget"
+      ]
+    },
+    {
+      "prompt_id": "D5",
+      "topic": "expiry strategy",
+      "weight": 5,
+      "anchors": [
+        "lazy expiry leaves dead entries consuming space until touched or purged",
+        "purge is O(n) under the lock",
+        "expired entries can crowd out live ones before they reach the LRU tail",
+        "alternatives: timer wheel / heap, periodic background sweeper, check tail on put"
+      ]
+    }
+  ],
+  "improvements": {
+    "weight": 15,
+    "expected_themes": [
+      {
+        "theme": "factor one remove_entry() helper used by delete/evict/expire to keep accounting in one place",
+        "weight": 4
+      },
+      {
+        "theme": "add tests: sanitizers (ASan/UBSan/TSan), Valgrind, stress test with invariant checks (count == list length == sum of chain lengths, bytes_used == sum of value_len)",
+        "weight": 4
+      },
+      {
+        "theme": "API clarity: size_t-aware lru_get that returns a length or allocates, optional out_len, documented thread-safety and lifecycle",
+        "weight": 3
+      },
+      {
+        "theme": "sharding or finer-grained locking; background expiry; monotonic clock",
+        "weight": 2
+      },
+      {
+        "theme": "make key length dynamic or documented; enforce limits at one place",
+        "weight": 2
+      }
+    ]
+  },
+  "red_herrings": [
+    {
+      "description": "hash_remove pointer-to-pointer traversal (correct)"
+    },
+    {
+      "description": "list_unlink / list_push_front / list_move_front (correct, handle head/tail/one-element cases)"
+    },
+    {
+      "description": "nbuckets = capacity with LRU_MIN_BUCKETS floor (intentional, load factor <= 1)"
+    },
+    {
+      "description": "lru_put's error paths free `copy` correctly (no leak on the -ENOMEM path for the entry allocation)"
+    },
+    {
+      "description": "evict loop evicting multiple entries in one put (intentional; a big value can displace several small ones)"
+    },
+    {
+      "description": "hash_key unsigned overflow (well-defined for unsigned int)"
+    },
+    {
+      "description": "negative errno return convention (intentional)"
+    },
+    {
+      "description": "worker() reusing buf for both lookup output and payload construction (sequential, no overlap)"
+    }
+  ],
+  "bonus": {
+    "max_points": 3,
+    "items": [
+      "lru_count reads count without the lock (data race) and does not NULL-check c (lines 409-412)",
+      "pthread_mutex_init return value ignored (line 230)",
+      "hash_key uses plain `char`: sign extension of bytes >= 0x80 makes hashing platform-dependent (line 83)",
+      "TTL uses wall-clock time(); clock adjustments (NTP, manual) can expire entries early or keep them alive; CLOCK_MONOTONIC is preferable (lines 272, 337, 396)",
+      "is_expired uses `<`, so an entry is still valid during the second equal to its expiry; boundary semantics are undocumented (line 95)",
+      "now + ttl_secs can overflow on 32-bit time_t with large ttl (lines 288, 300)",
+      "lru_destroy gives no protection against other threads still blocked on or about to take the mutex (lifecycle contract is undocumented)"
+    ]
+  },
+  "grader_instructions": [
+    "Grade against the rubric; do not require exact wording. Accept any answer whose meaning matches an anchor.",
+    "Credit bugs by function name or approximate line (+/- 5 lines).",
+    "Distinguish 'identified symptom' from 'identified root cause'; full bug credit requires the root cause.",
+    "For design questions, reward reasoned trade-offs over buzzwords; an answer that names sharding without explaining why a single lock is limiting earns at most half.",
+    "Report: per-section score, list of bugs found / missed, false positives, and one actionable suggestion for improving the candidate's code-reading approach."
+  ]
+}
