@@ -27,7 +27,10 @@ export default function LandingPage() {
     <div className="min-h-screen bg-canvas">
       <header className="flex h-14 items-center justify-between border-b border-line bg-white px-5">
         <Logo />
-        <a href="#/exercises" className="flex h-9 items-center rounded-lg bg-accent px-4 font-semibold text-white">Start practicing</a>
+        <div className="flex items-center gap-2">
+          <a href="#/playground" className="flex h-9 items-center rounded-lg border border-line-strong bg-white px-3.5 font-medium hover:border-ink">Playground</a>
+          <a href="#/exercises" className="flex h-9 items-center rounded-lg bg-accent px-4 font-semibold text-white">Start practicing</a>
+        </div>
       </header>
 
       <div className="mx-auto max-w-[1080px] px-4 py-16 md:py-24">
