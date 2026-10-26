@@ -1,0 +1,21 @@
+# Purchase workers (production).
+# Each host runs `processes` copies of tickets.worker.run, each single-threaded.
+
+[worker]
+hosts = ["tickets-worker-a", "tickets-worker-b"]
+processes = 4          # per host (OPS-2291, capacity for the Hollow Coast presale)
+threads = 1
+poll_ms = 50
+log_level = "INFO"
+
+[database]
+url = "postgres://tickets@db-primary.internal:5432/tickets"
+pool_size = 2          # per process
+
+[pricing]
+url = "http://pricing.internal"
+timeout_ms = 800
+
+[payments]
+provider = "cardco"
+timeout_ms = 2500
