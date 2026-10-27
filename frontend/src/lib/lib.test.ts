@@ -3,7 +3,6 @@ import { resolve } from 'node:path'
 import Ajv2020 from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
-import { highlight, highlightC } from './highlight'
 import { allFunctions, functionAt, parseOutline } from './outline'
 import { buildSubmission } from './submission'
 import type { Answers, PublicExercise } from './types'
@@ -35,24 +34,6 @@ describe('outline (TypeScript)', () => {
   })
 })
 
-describe('highlight (TypeScript)', () => {
-  const src = ts('worker.ts')
-  const tokens = highlight(src, 'typescript')
-  const kinds = (n: number) => Object.fromEntries(tokens[n - 1].map((t) => [t.text, t.kind]))
-
-  it('keeps every character and line', () => {
-    const ls = src.split('\n')
-    expect(tokens.length).toBe(ls.length)
-    tokens.forEach((t, i) => expect(t.map((x) => x.text).join('')).toBe(ls[i]))
-  })
-
-  it('colours keywords, strings and template literals', () => {
-    expect(kinds(299)).toMatchObject({ async: 'kw' })
-    expect(kinds(1)).toMatchObject({ import: 'kw', "'node:events'": 'str' })
-    expect(tokens[178].some((t) => t.kind === 'str' && t.text.startsWith('`'))).toBe(true)
-  })
-})
-
 describe('outline (C)', () => {
   const sections = parseOutline(lines)
 
@@ -70,21 +51,6 @@ describe('outline (C)', () => {
     expect(functionAt(sections, 200)?.name).toBe('evict_tail')
     expect(functionAt(sections, 224)?.name).toBe('lru_create')
     expect(functionAt(sections, 30)).toBeUndefined()
-  })
-})
-
-describe('highlight (C)', () => {
-  const tokens = highlightC(source)
-
-  it('keeps every character and line', () => {
-    expect(tokens.length).toBe(lines.length)
-    tokens.forEach((t, i) => expect(t.map((x) => x.text).join('')).toBe(lines[i]))
-  })
-
-  it('colours keywords, constants and comments', () => {
-    const kinds = (n: number) => Object.fromEntries(tokens[n - 1].map((t) => [t.text, t.kind]))
-    expect(kinds(185)).toMatchObject({ static: 'kw', void: 'kw' })
-    expect(kinds(29)['/* Types                                                              */']).toBe('com')
   })
 })
 
@@ -107,8 +73,10 @@ describe('submission', () => {
       { id: 'c5', type: 'bug', ranges: [{ file: f, start_line: 40, end_line: 40 }], text: '  ' },
     ],
     improvements: [{ id: 'i1', title: 'Add tests', detail: '' }],
+    edits: { 'types.ts': ts('types.ts').replace('export type JobProgress', '// scratch note\nexport type JobProgress') },
   }
-  const sub = buildSubmission(pub, answers, 'local', new Date('2026-10-13T10:30:00Z'))
+  const sources = Object.fromEntries(pub.files.map((f) => [f.path, ts(f.path)]))
+  const sub = buildSubmission(pub, answers, sources, 'local', new Date('2026-10-13T10:30:00Z'))
 
   it('matches submission.schema.json', () => {
     expect(validate(sub), JSON.stringify(validate.errors)).toBe(true)
@@ -121,10 +89,12 @@ describe('submission', () => {
     expect(sub.notes.map((n) => [n.id, n.type])).toEqual([['c2', 'question'], ['c3', 'design']])
     expect(sub.improvements.map((i) => i.title)).toEqual(['Add tests', 'factor out the retry blocks'])
     expect(sub.time_spent_minutes).toBe(30)
+    expect(sub.edits.map((e) => e.file)).toEqual(['types.ts'])
+    expect(sub.edits[0].patch).toContain('+// scratch note')
   })
 
   it('validates an empty submission too', () => {
-    const empty = buildSubmission(pub, { ...answers, answers: {}, comments: [], improvements: [] }, 'x')
+    const empty = buildSubmission(pub, { ...answers, answers: {}, comments: [], improvements: [], edits: {} }, sources, 'x')
     expect(validate(empty), JSON.stringify(validate.errors)).toBe(true)
   })
 })

@@ -69,7 +69,8 @@ export interface Improvement {
 export interface Answers {
   startedAt: number
   answers: Record<string, string> // question id -> text
-  comments: CodeComment[]
+  comments: CodeComment[] // ranges are ORIGINAL line numbers (see lib/linediff.ts)
+  edits: Record<string, string> // file path -> edited text, only for files the candidate changed
   improvements: Improvement[]
 }
 

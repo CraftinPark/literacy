@@ -21,3 +21,9 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Monaco line highlights for comments (see exercise/CodeEditor.tsx). */
+.rc-line-saved { background: theme('colors.code.note / 13%'); }
+.rc-line-draft { background: rgba(245, 197, 24, 0.14); }
+.rc-gutter-saved { box-shadow: inset 3px 0 0 theme('colors.code.note'); }
+.rc-gutter-draft { box-shadow: inset 3px 0 0 #F5C518; }

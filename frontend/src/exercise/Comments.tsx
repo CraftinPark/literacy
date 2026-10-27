@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { COMMENT_HUE, HUE_STRIPE, HUE_TEXT } from '../lib/hues'
-import type { CodeComment, CommentType } from '../lib/types'
+import type { CodeComment, CommentType, Range } from '../lib/types'
 import { COMMENT_TYPES, CONFIDENCES, LABEL, SEVERITIES, formatRanges } from '../lib/types'
 
 const PROMPT: Record<CommentType, string> = {
@@ -51,7 +51,7 @@ export function Composer({ draft, onChange, onSave, onCancel, onToggleLink }: {
   const ok = canSave(c)
 
   return (
-    <div className="mb-3 ml-[72px] mr-6 mt-2.5 max-w-[640px] rounded-[10px] bg-surface px-4 py-3.5 ring-1 ring-bug/50 font-sans text-[13px] text-ink shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
+    <div className="mb-3 ml-2 mr-6 mt-2.5 max-w-[640px] rounded-[10px] bg-surface px-4 py-3.5 ring-1 ring-bug/50 font-sans text-[13px] text-ink shadow-[0_8px_28px_rgba(0,0,0,0.45)]"
       onKeyDown={(e) => {
         if (e.key === 'Escape') onCancel()
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && ok) onSave()
@@ -124,18 +124,26 @@ export function Composer({ draft, onChange, onSave, onCancel, onToggleLink }: {
   )
 }
 
-export function CommentCard({ c, onEdit, onDelete }: { c: CodeComment; onEdit: () => void; onDelete: () => void }) {
+/** `shownAt` is where the commented code is now (after the candidate's edits); c.ranges stay the original lines. */
+export function CommentCard({ c, shownAt, removed = false, onEdit, onDelete }: {
+  c: CodeComment
+  shownAt?: Range[]
+  removed?: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const [confirming, setConfirming] = useState(false)
   const meta = ['You', LABEL[c.type], c.type === 'bug' && c.severity && LABEL[c.severity],
-    c.type === 'bug' && c.confidence && LABEL[c.confidence], formatRanges(c.ranges)].filter(Boolean).join(' · ')
+    c.type === 'bug' && c.confidence && LABEL[c.confidence], formatRanges(shownAt ?? c.ranges),
+    shownAt && formatRanges(shownAt) !== formatRanges(c.ranges) && `originally ${formatRanges(c.ranges)}`].filter(Boolean).join(' · ')
   return (
-    <div className={`my-2 ml-[72px] mr-6 flex max-w-[640px] gap-3 border-l-2 ${HUE_STRIPE[COMMENT_HUE[c.type]]} bg-code-note-bg/60 px-3.5 py-2.5 font-sans text-[13px] leading-[1.45] text-code-text`}>
+    <div className={`my-2 ml-2 mr-6 flex max-w-[640px] gap-3 border-l-2 ${HUE_STRIPE[COMMENT_HUE[c.type]]} bg-code-note-bg/60 px-3.5 py-2.5 font-sans text-[13px] leading-[1.45] text-code-text`}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
         strokeLinejoin="round" aria-hidden="true" className={`mt-0.5 flex-none ${HUE_TEXT[COMMENT_HUE[c.type]]}`}>
         <path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
       <div className="min-w-0 flex-1">
-        <div className="mb-0.5 text-xs text-code-dim">{meta}</div>
+        <div className="mb-0.5 text-xs text-code-dim">{meta}{removed && <span className="text-sec-bugs"> · these lines were removed in your edits</span>}</div>
         <div className="whitespace-pre-wrap">{c.text}</div>
         {c.fix && <div className="mt-1 whitespace-pre-wrap text-code-dim"><span className="text-code-text">Fix: </span>{c.fix}</div>}
       </div>

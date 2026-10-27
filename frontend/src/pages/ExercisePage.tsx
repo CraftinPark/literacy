@@ -1,22 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { Logo } from '../components/Logo'
-import { CodePane } from '../exercise/CodePane'
-import type { CodePaneHandle, LineMark } from '../exercise/CodePane'
+import { CodeEditor } from '../exercise/CodeEditor'
+import type { CodeEditorHandle, Insert, LineMark } from '../exercise/CodeEditor'
 import { CommentCard, Composer, canSave } from '../exercise/Comments'
 import type { DraftState } from '../exercise/Comments'
 import { Header } from '../exercise/Header'
 import { SidePanel } from '../exercise/SidePanel'
 import type { Tab } from '../exercise/SidePanel'
 import { Sidebar } from '../exercise/Sidebar'
-import { highlight } from '../lib/highlight'
+import { lineMap, toCurrentRange, toOriginalRange } from '../lib/linediff'
 import { allFunctions, functionAt, parseOutline } from '../lib/outline'
-import type { OutlineSection } from '../lib/outline'
 import { clearAnswers, emptyAnswers, loadAnswers, saveAnswers } from '../lib/storage'
 import { buildSubmission } from '../lib/submission'
 import type { Submission } from '../lib/submission'
-import type { Token } from '../lib/highlight'
-import type { Answers, CodeComment, Dimension, PublicExercise } from '../lib/types'
+import type { Answers, CodeComment, Dimension, PublicExercise, Range } from '../lib/types'
 
 const CONTEXT_LINES = 3
 const CANDIDATE_ID = 'local' // no accounts yet
@@ -34,7 +31,8 @@ export default function ExercisePage({ id }: { id: string }) {
         if (!res.ok) throw new Error(`Exercise ${id} was not found.`)
         const pub: PublicExercise = await res.json()
         const texts = await Promise.all(pub.files.map((f) => fetch(`/exercises/${id}/code/${f.path}`).then((r) => r.text())))
-        if (!cancelled) { setEx(pub); setSources(Object.fromEntries(pub.files.map((f, i) => [f.path, texts[i]]))) }
+        // Files end with a newline; the editor works on the text without it so line counts match public.json.
+        if (!cancelled) { setEx(pub); setSources(Object.fromEntries(pub.files.map((f, i) => [f.path, texts[i].replace(/\n$/, '')]))) }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e))
       }
@@ -47,41 +45,45 @@ export default function ExercisePage({ id }: { id: string }) {
   return <Workspace key={`${ex.id}:${ex.version}`} ex={ex} sources={sources} />
 }
 
-interface SourceFile {
-  path: string
-  lines: string[]
-  tokens: Token[][]
-  sections: OutlineSection[]
-}
-
+/**
+ * Comments are stored with ORIGINAL line numbers (what the answer key uses). The candidate may edit
+ * the code, so everything shown in the editor goes through a per-file line map (lib/linediff.ts).
+ */
 function Workspace({ ex, sources }: { ex: PublicExercise; sources: Record<string, string> }) {
-  const files = useMemo<SourceFile[]>(() => ex.files.map(({ path }) => {
-    const text = sources[path].replace(/\n$/, '')
-    const lines = text.split('\n')
-    return { path, lines, tokens: highlight(text, ex.language), sections: parseOutline(lines, ex.language) }
-  }), [ex, sources])
-  const [active, setActive] = useState(files[0].path)
-  const file = files.find((f) => f.path === active) ?? files[0]
-  const { path, lines, tokens, sections } = file
-  const functions = useMemo(() => files.flatMap((f) => allFunctions(f.sections).map((fn) => ({ ...fn, file: f.path }))), [files])
-  const totalLines = files.reduce((n, f) => n + f.lines.length, 0)
-
   const [answers, setAnswers] = useState<Answers>(() => loadAnswers(ex.id, ex.version) ?? emptyAnswers())
   useEffect(() => saveAnswers(ex.id, ex.version, answers), [answers, ex])
+
+  const files = useMemo(() => ex.files.map(({ path }) => {
+    const original = sources[path]
+    const current = answers.edits[path] ?? original
+    return { path, original, current, map: lineMap(original, current), sections: parseOutline(current.split('\n'), ex.language) }
+  }), [ex, sources, answers.edits])
+  const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files])
+  const [active, setActive] = useState(files[0].path)
+  const file = byPath.get(active) ?? files[0]
+  const { path, sections, map } = file
+  const functions = useMemo(() => files.flatMap((f) => allFunctions(f.sections).map((fn) => ({ ...fn, file: f.path }))), [files])
+  const totalLines = ex.files.reduce((n, f) => n + f.line_count, 0)
+  const editorFiles = useMemo(() => files.map(({ path, original, current }) => ({ path, original, current })), [files])
+
+  const onEdit = useCallback((p: string, text: string) => setAnswers((a) => {
+    if ((a.edits[p] ?? sources[p]) === text) return a
+    const edits = { ...a.edits }
+    if (text === sources[p]) delete edits[p]
+    else edits[p] = text
+    return { ...a, edits }
+  }), [sources])
 
   const [draft, setDraft] = useState<DraftState | null>(null)
   const [tab, setTab] = useState<Tab>('understand')
   const [topLine, setTopLine] = useState(1)
   const [focus, setFocus] = useState(false)
-  const [query, setQuery] = useState('')
-  const [hitIdx, setHitIdx] = useState(0)
   const [reviewing, setReviewing] = useState(false)
   const [submitted, setSubmitted] = useState<Submission | null>(null)
-  const code = useRef<CodePaneHandle>(null)
-  const search = useRef<HTMLInputElement>(null)
+  const code = useRef<CodeEditorHandle>(null)
   const pendingScroll = useRef<number | null>(null)
 
-  // ---- navigation
+  // ---- navigation (lines here are CURRENT line numbers in the target file)
   const jump = useCallback((line: number, to: string = active) => {
     if (focus || to !== active) {
       setFocus(false)
@@ -102,53 +104,41 @@ function Workspace({ ex, sources }: { ex: PublicExercise; sources: Record<string
     setActive(to)
     setTopLine(1)
   }
+  const jumpToComment = (c: CodeComment) => {
+    const r = c.ranges[0]
+    const m = byPath.get(r.file)?.map
+    jump(m ? toCurrentRange(m, r.start_line, r.end_line).start : r.start_line, r.file)
+  }
 
+  // Ctrl/⌘-F anywhere on the page opens the editor's find.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault()
-        search.current?.focus()
-        search.current?.select()
+        code.current?.find()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // ---- search (in the open file)
-  const hits = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return q ? lines.flatMap((l, i) => (l.toLowerCase().includes(q) ? [i + 1] : [])) : []
-  }, [query, lines])
-  const hitSet = useMemo(() => new Set(hits), [hits])
-  const activeHit = hits.length ? hits[Math.min(hitIdx, hits.length - 1)] : null
-  const onQuery = (q: string) => { setQuery(q); setHitIdx(0) }
-  const onNextHit = (back: boolean) => {
-    if (!hits.length) return
-    const i = (Math.min(hitIdx, hits.length - 1) + (back ? hits.length - 1 : 1)) % hits.length
-    setHitIdx(i)
-    jump(hits[i])
-  }
-  useEffect(() => { if (activeHit != null) jump(activeHit) }, [query, active])
-
   // ---- comments
-  // A saved comment is shown in the file of its first range; the composer follows its newest range.
+  /** A comment's ranges in the open file, in current line numbers. */
+  const here = (c: CodeComment) => c.ranges.filter((r) => r.file === path).map((r) => toCurrentRange(map, r.start_line, r.end_line))
   const fnAt = (line: number) => functionAt(sections, line)?.name
   const onSelect = useCallback((start: number, end: number) => {
-    const range = { file: path, start_line: start, end_line: end }
+    const o = toOriginalRange(map, start, end)
+    const range: Range = { file: path, start_line: o.start, end_line: o.end }
+    const fn = functionAt(sections, start)?.name
     setDraft((d) => {
       if (d?.linking) return { ...d, linking: false, comment: { ...d.comment, ranges: [...d.comment.ranges, range] } }
       if (d && (d.comment.text.trim() || d.editingId)) {
         // Re-anchor the comment being written instead of throwing its text away.
-        return { ...d, comment: { ...d.comment, ranges: [range], function: functionAt(sections, start)?.name } }
+        return { ...d, comment: { ...d.comment, ranges: [range], function: fn } }
       }
-      return {
-        editingId: null,
-        linking: false,
-        comment: { id: '', type: 'bug', ranges: [range], text: '', function: functionAt(sections, start)?.name },
-      }
+      return { editingId: null, linking: false, comment: { id: '', type: 'bug', ranges: [range], text: '', function: fn } }
     })
-  }, [path, sections])
+  }, [path, sections, map])
 
   const saveDraft = () => {
     if (!draft || !canSave(draft.comment)) return
@@ -164,45 +154,37 @@ function Workspace({ ex, sources }: { ex: PublicExercise; sources: Record<string
   }
   const deleteComment = (cid: string) => setAnswers((a) => ({ ...a, comments: a.comments.filter((c) => c.id !== cid) }))
 
-  const here = (c: CodeComment) => c.ranges.filter((r) => r.file === path)
-  const marks = useMemo(() => {
-    const m = new Map<number, LineMark>()
-    for (const c of answers.comments) {
-      if (c.id === draft?.editingId) continue
-      for (const r of here(c)) for (let n = r.start_line; n <= r.end_line; n++) m.set(n, 'saved')
-    }
-    for (const r of draft ? here(draft.comment) : []) for (let n = r.start_line; n <= r.end_line; n++) m.set(n, 'draft')
-    return m
-  }, [answers.comments, draft, path])
+  const marks = useMemo<LineMark[]>(() => [
+    ...answers.comments.filter((c) => c.id !== draft?.editingId).flatMap(here).map((r) => ({ ...r, kind: 'saved' as const })),
+    ...(draft ? here(draft.comment) : []).map((r) => ({ ...r, kind: 'draft' as const })),
+  ], [answers.comments, draft, path, map])
 
-  const lastLine = (c: CodeComment) => Math.max(...here(c).map((r) => r.end_line))
-  const inserts = useMemo(() => {
-    const m = new Map<number, ReactNode[]>()
-    const add = (line: number, node: ReactNode) => m.set(line, [...(m.get(line) ?? []), node])
-    for (const c of answers.comments) {
-      if (c.id === draft?.editingId || c.ranges[0].file !== path) continue
-      add(lastLine(c), <CommentCard key={c.id} c={c} onDelete={() => deleteComment(c.id)}
-        onEdit={() => setDraft({ editingId: c.id, linking: false, comment: { ...c } })} />)
-    }
-    const newest = draft?.comment.ranges[draft.comment.ranges.length - 1]
-    if (draft && newest?.file === path) {
-      add(lastLine(draft.comment), <Composer key="composer" draft={draft} onSave={saveDraft} onCancel={() => setDraft(null)}
-        onChange={(comment) => setDraft({ ...draft, comment })} onToggleLink={() => setDraft({ ...draft, linking: !draft.linking })} />)
-    }
-    return new Map([...m].map(([k, v]) => [k, <>{v}</>]))
-  }, [answers.comments, draft, path])
+  const lastLine = (c: CodeComment) => Math.max(...here(c).map((r) => r.end))
+  const inserts: Insert[] = []
+  for (const c of answers.comments) {
+    if (c.id === draft?.editingId || c.ranges[0].file !== path) continue
+    const now = here(c)
+    const shownAt = now.map((r) => ({ file: path, start_line: r.start, end_line: r.end }))
+    inserts.push({ key: c.id, afterLine: lastLine(c), node: <CommentCard c={c} shownAt={shownAt} removed={now.every((r) => r.removed)} onDelete={() => deleteComment(c.id)}
+      onEdit={() => setDraft({ editingId: c.id, linking: false, comment: { ...c } })} /> })
+  }
+  const newest = draft?.comment.ranges[draft.comment.ranges.length - 1]
+  if (draft && newest?.file === path) {
+    inserts.push({ key: 'composer', afterLine: lastLine(draft.comment), node: <Composer draft={draft} onSave={saveDraft} onCancel={() => setDraft(null)}
+      onChange={(comment) => setDraft({ ...draft, comment })} onToggleLink={() => setDraft({ ...draft, linking: !draft.linking })} /> })
+  }
 
+  const lineCount = file.current.split('\n').length
   const focusLines = useMemo(() => {
     if (!focus) return null
     const s = new Set<number>()
-    const ranges = [...answers.comments.flatMap(here), ...(draft ? here(draft.comment) : [])]
-    for (const r of ranges) {
-      for (let n = Math.max(1, r.start_line - CONTEXT_LINES); n <= Math.min(lines.length, r.end_line + CONTEXT_LINES); n++) s.add(n)
-      const fn = functionAt(sections, r.start_line)
+    for (const r of [...answers.comments.flatMap(here), ...(draft ? here(draft.comment) : [])]) {
+      for (let n = Math.max(1, r.start - CONTEXT_LINES); n <= Math.min(lineCount, r.end + CONTEXT_LINES); n++) s.add(n)
+      const fn = functionAt(sections, r.start)
       if (fn) s.add(fn.line)
     }
     return s
-  }, [focus, answers.comments, draft, lines.length, sections, path])
+  }, [focus, answers.comments, draft, lineCount, sections, path, map])
 
   // ---- progress
   const answeredCount = ex.questions.filter((q) => answers.answers[q.id]?.trim()).length
@@ -215,13 +197,14 @@ function Workspace({ ex, sources }: { ex: PublicExercise; sources: Record<string
   }, [answers.comments, path])
   const fileEntries = useMemo(() => files.map((f) => ({
     path: f.path,
-    lines: f.lines.length,
+    lines: f.current.split('\n').length,
     comments: answers.comments.filter((c) => c.ranges.some((r) => r.file === f.path)).length,
+    edited: f.current !== f.original,
   })), [files, answers.comments])
   const draftFirst = draft && !draft.editingId ? draft.comment.ranges[0] : undefined
 
   const submit = () => {
-    setSubmitted(buildSubmission(ex, answers, CANDIDATE_ID))
+    setSubmitted(buildSubmission(ex, answers, sources, CANDIDATE_ID))
     clearAnswers(ex.id, ex.version)
     setReviewing(false)
   }
@@ -233,18 +216,17 @@ function Workspace({ ex, sources }: { ex: PublicExercise; sources: Record<string
       <Header ex={ex} lines={totalLines} answeredCount={answeredCount} totalPrompts={ex.questions.length}
         commentCount={answers.comments.length} startedAt={answers.startedAt} onSubmit={() => setReviewing(true)} />
       <div className="flex min-h-0 flex-1">
-        <Sidebar ref={search} rootName={ex.id} files={fileEntries} activeFile={path} onOpenFile={openFile} sections={sections} currentFn={fnAt(topLine)} savedCount={savedCount}
-          draftFn={draftFirst?.file === path ? draft!.comment.function : undefined}
-          query={query} onQuery={onQuery} onNextHit={onNextHit} onJump={jump}
-          hitInfo={hits.length ? `${Math.min(hitIdx, hits.length - 1) + 1} of ${hits.length} · Enter for next` : 'No matches'} />
-        <CodePane key={path} ref={code} path={path} tokens={tokens} marks={marks}
-          inserts={inserts} focusLines={focusLines} searchHits={hitSet} activeHit={activeHit} breadcrumb={fnAt(topLine)}
-          onSelect={onSelect} onTopLineChange={setTopLine} onShowAll={() => setFocus(false)}
-          linking={!!draft?.linking}
+        <Sidebar rootName={ex.id} files={fileEntries} activeFile={path} onOpenFile={openFile} sections={sections}
+          currentFn={fnAt(topLine)} savedCount={savedCount}
+          draftFn={draftFirst?.file === path ? draft!.comment.function : undefined} onJump={jump} />
+        <CodeEditor ref={code} files={editorFiles} path={path} marks={marks} inserts={inserts} focusLines={focusLines}
+          breadcrumb={fnAt(topLine)} linking={!!draft?.linking} onChange={onEdit} onSelectLines={onSelect}
+          onOpenFile={(to, line) => jump(line, to)} onTopLineChange={setTopLine} onShowAll={() => setFocus(false)}
           focus={focus} canFocus={answers.comments.some((c) => here(c).length > 0) || !!draft} onToggleFocus={() => setFocus((f) => !f)} />
         <SidePanel tab={tab} onTab={setTab} intro={ex.intro} questions={ex.questions} answers={answers.answers}
           comments={answers.comments} improvements={answers.improvements} functions={functions}
-          multiFile={files.length > 1} onJump={(file, line) => jump(line, file)} onReview={() => setReviewing(true)}
+          multiFile={files.length > 1} onJump={(f, line) => jump(line, f)} onJumpToComment={jumpToComment}
+          onReview={() => setReviewing(true)}
           onAnswer={(qid, text) => setAnswers((a) => ({ ...a, answers: { ...a.answers, [qid]: text } }))}
           onImprovements={(improvements) => setAnswers((a) => ({ ...a, improvements }))} />
       </div>

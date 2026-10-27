@@ -188,6 +188,7 @@ interface Props {
   onAnswer: (id: string, text: string) => void
   onImprovements: (items: Improvement[]) => void
   onJump: JumpFn
+  onJumpToComment: (c: CodeComment) => void
   onReview: () => void
 }
 
@@ -203,7 +204,7 @@ export function SidePanel(p: Props) {
     design: `${answered('design')}/${of('design').length}`,
     improve: of('improve').length ? `${answered('improve')}/${of('improve').length}` : `${improveCount}`,
   }
-  const jumpTo = (c: CodeComment) => p.onJump(c.ranges[0].file, c.ranges[0].start_line)
+  const jumpTo = p.onJumpToComment
   const next = TABS[TABS.indexOf(p.tab) + 1]
   const prompts = (t: Tab) => of(t).length > 0 && (
     <PromptList key={t} items={of(t)} answers={p.answers} functions={p.functions} onJump={p.onJump} onAnswer={p.onAnswer} hue={t} />

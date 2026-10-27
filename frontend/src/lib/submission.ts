@@ -1,5 +1,6 @@
 // Turns the candidate's work into a submission (schemas/submission.schema.json),
 // the file the grader reads.
+import { unifiedDiff } from './linediff'
 import type { Answers, PublicExercise, Range } from './types'
 
 export interface Submission {
@@ -21,6 +22,7 @@ export interface Submission {
   }[]
   improvements: { title: string; detail?: string; locations?: Range[] }[]
   notes: { id: string; type: 'question' | 'design'; locations: Range[]; text: string }[]
+  edits: { file: string; patch: string }[]
 }
 
 const nonEmpty = (rec: Record<string, string>) =>
@@ -31,7 +33,8 @@ function firstLine(text: string, max = 80) {
   return line.length > max ? line.slice(0, max - 1) + '…' : line
 }
 
-export function buildSubmission(ex: PublicExercise, a: Answers, candidateId: string, now = new Date()): Submission {
+/** `sources` are the files as shipped; edits become unified diffs against them (ungraded scratch work). */
+export function buildSubmission(ex: PublicExercise, a: Answers, sources: Record<string, string>, candidateId: string, now = new Date()): Submission {
   const comments = a.comments.filter((c) => c.text.trim())
   return {
     schema_version: 2,
@@ -63,5 +66,8 @@ export function buildSubmission(ex: PublicExercise, a: Answers, candidateId: str
     notes: comments
       .filter((c) => c.type === 'question' || c.type === 'design')
       .map((c) => ({ id: c.id, type: c.type as 'question' | 'design', locations: c.ranges, text: c.text.trim() })),
+    edits: ex.files
+      .map((f) => ({ file: f.path, patch: f.path in a.edits ? unifiedDiff(sources[f.path], a.edits[f.path], f.path) : '' }))
+      .filter((e) => e.patch),
   }
 }

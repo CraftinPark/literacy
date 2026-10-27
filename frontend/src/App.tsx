@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import ExercisePage from './pages/ExercisePage'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import ExercisesPage from './pages/ExercisesPage'
 import LandingPage from './pages/LandingPage'
+
+// The exercise page carries the code editor (Monaco), so it loads only when an exercise opens.
+const ExercisePage = lazy(() => import('./pages/ExercisePage'))
 
 // Hash routes: #/  #/exercises  #/exercise/<id>
 function useRoute() {
@@ -21,7 +23,7 @@ function useRoute() {
 export default function App() {
   const route = useRoute()
   const exercise = /^\/exercise\/([\w-]+)$/.exec(route)
-  if (exercise) return <ExercisePage id={exercise[1]} />
+  if (exercise) return <Suspense fallback={null}><ExercisePage id={exercise[1]} /></Suspense>
   if (route === '/exercises') return <ExercisesPage />
   return <LandingPage />
 }

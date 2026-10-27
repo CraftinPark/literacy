@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { OutlineSection } from '../lib/outline'
 
@@ -6,6 +6,7 @@ export interface FileEntry {
   path: string
   lines: number
   comments: number
+  edited: boolean
 }
 
 interface Props {
@@ -17,10 +18,6 @@ interface Props {
   currentFn: string | undefined
   savedCount: Map<string, number>
   draftFn: string | undefined
-  query: string
-  hitInfo: string
-  onQuery: (q: string) => void
-  onNextHit: (back: boolean) => void
   onJump: (line: number) => void
 }
 
@@ -95,7 +92,7 @@ const ROW = 'flex h-[22px] w-full items-center gap-1.5 pr-2 text-left text-[13px
 const rowState = (active: boolean) =>
   active ? 'bg-code-select text-white shadow-[inset_1px_0_0_theme(colors.code.note)]' : 'text-code-text hover:bg-code-hover'
 
-export const Sidebar = forwardRef<HTMLInputElement, Props>(function Sidebar(p, searchRef) {
+export function Sidebar(p: Props) {
   const [filesOpen, setFilesOpen] = useState(true)
   const [rootOpen, setRootOpen] = useState(true)
   const [outlineOpen, setOutlineOpen] = useState(true)
@@ -106,16 +103,6 @@ export const Sidebar = forwardRef<HTMLInputElement, Props>(function Sidebar(p, s
   return (
     <aside className="flex w-60 flex-none flex-col overflow-y-auto bg-canvas font-sans text-code-text">
       <div className="flex h-[35px] flex-none items-center px-4 text-[11px] font-medium tracking-[0.06em] text-code-dim">EXPLORER</div>
-      <div className="flex-none px-3 pb-2">
-        <input ref={searchRef} type="search" aria-label="Search code" placeholder="Search in file (Ctrl+F)" value={p.query}
-          onChange={(e) => p.onQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); p.onNextHit(e.shiftKey) }
-            if (e.key === 'Escape') p.onQuery('')
-          }}
-          className="h-[28px] w-full rounded-md bg-field px-2.5 text-[12.5px] text-code-text placeholder:text-code-dim outline-none ring-accent focus:ring-1" />
-        {p.query && <div className="mt-1 px-0.5 text-[11px] text-code-dim">{p.hitInfo}</div>}
-      </div>
 
       <Section title="FILES" open={filesOpen} onToggle={() => setFilesOpen((o) => !o)}>
         <button type="button" onClick={() => setRootOpen((o) => !o)} aria-expanded={rootOpen}
@@ -131,8 +118,9 @@ export const Sidebar = forwardRef<HTMLInputElement, Props>(function Sidebar(p, s
                 <button key={f.path} role="tab" type="button" aria-selected={active} onClick={() => p.onOpenFile(f.path)}
                   title={`${f.path} · ${f.lines} lines`} className={`${ROW} pl-[26px] ${rowState(active)}`}>
                   <FileIcon path={f.path} />
-                  <span className="min-w-0 flex-1 truncate">{f.path}</span>
+                  <span className={`min-w-0 flex-1 truncate ${f.edited ? 'text-sec-bugs' : ''}`}>{f.path}</span>
                   {f.comments > 0 && <Count n={f.comments} />}
+                  {f.edited && <span title="Edited" aria-label="edited" className="h-1.5 w-1.5 flex-none rounded-full bg-sec-bugs" />}
                 </button>
               )
             })}
@@ -183,9 +171,9 @@ export const Sidebar = forwardRef<HTMLInputElement, Props>(function Sidebar(p, s
 
       <div className="flex-1" />
       <p className="m-3 mt-6 flex-none text-[11.5px] leading-[1.45] text-code-dim">
-        <b className="font-semibold text-code-text">Tip:</b> drag across line numbers to select a range, then describe
-        what is wrong and why it fails. Shift-click extends a selection.
+        <b className="font-semibold text-code-text">Tip:</b> drag across line numbers (or right-click a selection) to
+        comment. ⌘/Ctrl-click a name to jump to its definition. You can edit the code; edits are kept as notes, not graded.
       </p>
     </aside>
   )
-})
+}

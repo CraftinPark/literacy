@@ -164,6 +164,27 @@
           }
         }
       }
+    },
+    "edits": {
+      "description": "The candidate's edits to the code, one unified diff per changed file against the shipped file. Scratch work: not graded in v1, but a grader may read a written fix as evidence. All `locations` elsewhere in the submission use the ORIGINAL (shipped) line numbers, not the edited ones.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "patch"
+        ],
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "string",
+            "pattern": "^--- a/"
+          }
+        }
+      }
     }
   },
   "$defs": {

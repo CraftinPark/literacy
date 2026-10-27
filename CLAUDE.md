@@ -121,12 +121,15 @@ hint words in the code, unlisted files in `code/`, a dimension with no question,
 
 ## 7. Frontend
 
-`frontend/src/pages/ExercisePage.tsx`: multi-file (dark VS Code-style Explorer in the left sidebar: collapsible FILES tree and OUTLINE with symbol icons,
-with comment counts; comments can link ranges across files),
-outline per file (C: banner comments; TypeScript: classes and their methods), syntax colouring for C and TypeScript,
-side-panel tabs show the questions of their dimension (intro on Understand; free-form suggestions stay on Improve),
-line comments (Bug / Question / Design / Improvement), autosave to localStorage, submit shows the submission JSON
-(`schemas/submission.schema.json`, v2: `answers` keyed by question id). No grading is connected.
+`frontend/src/pages/ExercisePage.tsx`: the code pane is **Monaco** (VS Code's editor; `exercise/CodeEditor.tsx`,
+setup in `lib/monaco.ts`), one model per file: candidates can **edit** (ungraded scratch space), use find, folding, and
+⌘/Ctrl-click go-to-definition across the exercise's files. Comments are stored with ORIGINAL line numbers and mapped to
+the edited text by a line diff (`lib/linediff.ts`, tested); comment boxes are view zones (reserved space) with the content
+in overlay widgets (view-zone content can't be clicked). Edited files get a dot, "Show my changes" (inline diff) and
+"Reset file". Dark VS Code-style Explorer (FILES tree + OUTLINE), TypeScript/C outline, side-panel tabs per dimension,
+line comments (Bug / Question / Design / Improvement), autosave to localStorage (answers and edits), submit shows the
+submission JSON (`schemas/submission.schema.json`, v2: `answers` keyed by question id, `edits` as unified diffs). No grading is connected.
+The exercise page is lazy-loaded (Monaco is ~3.4 MB plus a 6 MB TypeScript worker); trimming Monaco's unused languages is a TODO.
 Visual language (John, 2026-10-26): dark with **near-black neutrals** (page `#0A0A0A`, code `#111111`, no blue tint),
 **typographic** (no hairline borders or outlined boxes; structure comes from
 whitespace, type size/weight and filled fields), slate-blue accent `#4A6FA5` for actions only, Source Sans 3 + Source Code Pro,
