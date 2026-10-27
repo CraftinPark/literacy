@@ -1,7 +1,7 @@
 export function LogoMark({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#1F4FD8" strokeWidth="2"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-accent-text">
       <path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 5l-3 14" />
     </svg>
   )

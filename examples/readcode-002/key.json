@@ -1,0 +1,54 @@
+{
+  "schema_version": 2,
+  "id": "readcode-002",
+  "version": 1,
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Job stops being tracked for lock renewal before the processor runs",
+      "pattern": "lock-released-before-processing",
+      "locations": [
+        {"file": "worker.ts", "function": "processJob", "start_line": 334, "end_line": 339}
+      ],
+      "description": "processJob calls this.lockManager.untrackJob(job.id) immediately before callProcessJob. trackJob added the job a few lines earlier, so the job is removed from trackedJobs while its processor is still running. The lock extender timer only renews locks of tracked jobs, so this job's lock is never renewed.",
+      "runtime_failure": "The lock taken when the job was fetched expires after lockDuration. The stalled-job checker then sees an active job without a lock, treats it as stalled and moves it back to wait. Another worker (or this one) fetches it and runs the processor again while the first run is still going: duplicate processing. When the first run finishes, its moveToCompleted/moveToFailed no longer owns the lock (in BullMQ this fails with 'Missing lock for job' or 'Lock mismatch'). After maxStalledCount stalls the job is failed as stalled.",
+      "conditions": "Only when the processor runs longer than lockDuration (30 s by default), plus up to one stalledInterval. Shorter jobs complete before the lock expires, so tests and light traffic hide the bug.",
+      "fix": "Delete the untrackJob call before callProcessJob. Untrack only once the job has finished: the completion and failure paths and the finally block already do that."
+    }
+  ],
+  "rubric": [
+    {"id": "R1", "question_id": "Q1", "kind": "required", "point": "mainLoop starts fetches (_getNextJob, wrapped in retryIfFailed) and adds each fetch promise to the AsyncFifoQueue; when a fetched job comes out of the queue, it calls processJob and adds that promise to the same queue."},
+    {"id": "R2", "question_id": "Q1", "kind": "required", "point": "processJob tracks the job with the LockManager, runs the processor via callProcessJob, then calls handleCompleted (job.moveToCompleted) on success or handleFailed (job.moveToFailed) on error."},
+    {"id": "R3", "question_id": "Q1", "kind": "bonus", "point": "moveToCompleted/moveToFailed can return the next job (fetchNext), so processJob's promise resolves to the next job and mainLoop starts it without a separate fetch."},
+
+    {"id": "R4", "question_id": "Q2", "kind": "required", "point": "The inner loop only starts a new fetch while asyncFifoQueue.numTotal() < _concurrency; numTotal counts pending promises (fetches and running jobs) plus resolved results not yet fetched."},
+    {"id": "R5", "question_id": "Q2", "kind": "bonus", "point": "fetchNextCallback (numTotal() <= _concurrency) stops a finishing job from fetching another one when the worker is already at capacity; fetching also stops while waiting for jobs, rate limited, closing or paused."},
+
+    {"id": "R6", "question_id": "Q3", "kind": "required", "point": "It keeps the locks of jobs this worker is processing alive, so the stalled checker does not treat them as stalled and hand them to another worker."},
+    {"id": "R7", "question_id": "Q3", "kind": "required", "point": "A timer fires every lockRenewTime / 2 (lockRenewTime defaults to lockDuration / 2) and extends the locks of tracked jobs whose last renewal (ts) is older than lockRenewTime / 2. Only jobs in trackedJobs are renewed."},
+    {"id": "R8", "question_id": "Q3", "kind": "bonus", "point": "A tracked job with ts 0 only gets its ts set to now on the first tick; failed renewals emit 'lockRenewalFailed' and 'error'."},
+
+    {"id": "R9", "question_id": "Q4", "kind": "required", "bug_id": "B1", "point": "untrackJob(job.id) is called right before callProcessJob, so the job is removed from tracking while the processor runs and its lock is never renewed."},
+    {"id": "R10", "question_id": "Q4", "kind": "required", "bug_id": "B1", "point": "Once the lock expires, the stalled checker moves the job back to wait and a worker runs it again while the first run continues: duplicate processing."},
+    {"id": "R11", "question_id": "Q4", "kind": "required", "bug_id": "B1", "point": "It only happens when the processor runs longer than lockDuration (30 s by default); short jobs hide it."},
+    {"id": "R12", "question_id": "Q4", "kind": "bonus", "bug_id": "B1", "point": "Fix: remove the early untrackJob; the completion/failure paths and finally already untrack once the job is done."},
+    {"id": "R13", "question_id": "Q4", "kind": "bonus", "bug_id": "B1", "point": "When the first run finishes it no longer holds the lock, so moving the job to completed/failed is rejected, and after maxStalledCount stalls the job fails as stalled."},
+    {"id": "R14", "question_id": "Q4", "kind": "bonus", "point": "Processors should be idempotent anyway: delivery is at-least-once, so a job can run twice even without this bug (for example when a worker crashes mid-job)."},
+
+    {"id": "R15", "question_id": "Q5", "kind": "required", "point": "Each way out of processJob (unrecoverable failure, completion, error) untracks the job just before moving it out of active, so renewal stops once the job is finished; finally is a safety net for any path that throws or returns early."},
+    {"id": "R16", "question_id": "Q5", "kind": "bonus", "point": "untrackJob is a Map delete, so calling it more than once is harmless (idempotent)."},
+
+    {"id": "R17", "question_id": "Q6", "kind": "required", "point": "They are not failures: the processor has deliberately moved the job to delayed, waiting or waiting-children, so the worker must not call moveToFailed (which would count a failed attempt)."},
+    {"id": "R18", "question_id": "Q6", "kind": "bonus", "point": "Instead the worker just fetches its next job (moveToActive) if it may fetch; the rate-limit error is a third special case that moves the job back to wait and sets limitUntil."},
+
+    {"id": "R19", "question_id": "Q7", "kind": "required", "point": "Count and alert on the signals of lost locks: stalled jobs, 'lockRenewalFailed' events and lock errors when completing a job."},
+    {"id": "R20", "question_id": "Q7", "kind": "bonus", "point": "Log job id and attempt (attemptsStarted) when each run starts, and alert when the same job id starts while an earlier run has not finished."},
+
+    {"id": "R21", "question_id": "Q8", "kind": "required", "point": "Keep the job's lock renewed for the whole processor run (track it until it finishes), and set lockDuration comfortably above the renewal interval."},
+    {"id": "R22", "question_id": "Q8", "kind": "bonus", "point": "Make the processor idempotent (deduplication key, or check-and-set on side effects) so a second run is harmless; stop work via the abort signal when the lock is lost; or split long jobs into smaller ones."}
+  ],
+  "grader_notes": [
+    "A line comment on worker.ts around line 334 that explains the missing lock renewal earns R9 to R11 even if Q4 is left blank.",
+    "Q5 names untrackJob, which points at the bug's area; credit Q4 only for the mechanism (renewal stops, lock expires, job re-run), not for merely quoting the extra call."
+  ]
+}

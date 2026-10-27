@@ -3,13 +3,13 @@
 import type { Answers, PublicExercise, Range } from './types'
 
 export interface Submission {
-  schema_version: 1
+  schema_version: 2
   exercise_id: string
   exercise_version: number
   candidate_id: string
   submitted_at: string
   time_spent_minutes: number
-  comprehension: Record<string, string>
+  answers: Record<string, string>
   bugs: {
     id: string
     locations: Range[]
@@ -19,7 +19,6 @@ export interface Submission {
     explanation: string
     fix?: string
   }[]
-  design: Record<string, string>
   improvements: { title: string; detail?: string; locations?: Range[] }[]
   notes: { id: string; type: 'question' | 'design'; locations: Range[]; text: string }[]
 }
@@ -35,14 +34,13 @@ function firstLine(text: string, max = 80) {
 export function buildSubmission(ex: PublicExercise, a: Answers, candidateId: string, now = new Date()): Submission {
   const comments = a.comments.filter((c) => c.text.trim())
   return {
-    schema_version: 1,
+    schema_version: 2,
     exercise_id: ex.id,
     exercise_version: ex.version,
     candidate_id: candidateId,
     submitted_at: now.toISOString(),
     time_spent_minutes: Math.max(0, Math.round((now.getTime() - a.startedAt) / 6000) / 10),
-    comprehension: nonEmpty(a.comprehension),
-    design: nonEmpty(a.design),
+    answers: nonEmpty(a.answers),
     bugs: comments
       .filter((c) => c.type === 'bug')
       .map((c) => ({

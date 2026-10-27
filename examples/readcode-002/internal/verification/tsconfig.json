@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "ES2020",
+    "moduleResolution": "node",
+    "strict": true,
+    "strictNullChecks": false,
+    "useDefineForClassFields": false,
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": false,
+    "lib": ["esnext"],
+    "types": ["node"],
+    "noEmit": true
+  }
+}

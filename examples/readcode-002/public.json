@@ -1,0 +1,93 @@
+{
+  "schema_version": 2,
+  "id": "readcode-002",
+  "version": 1,
+  "title": "BullMQ worker: fetching, processing and job locks",
+  "intro": "Excerpts from the Worker class of BullMQ, a Redis-backed job queue for Node.js, trimmed so they stand alone. A worker pulls jobs from a queue and runs a processor function on each one, several at a time. Redis is replaced by the QueueBackend interface in types.ts; read its comment for what the real backend does. Start with mainLoop in worker.ts.",
+  "language": "typescript",
+  "level": "mid",
+  "estimated_minutes": 45,
+  "concepts": [
+    {
+      "id": "backend.messaging.queues-consumers",
+      "name": "Queues and consumers"
+    },
+    {
+      "id": "backend.concurrency.thread-worker-pools",
+      "name": "Thread and worker pools"
+    },
+    {
+      "id": "backend.messaging.at-least-once-delivery",
+      "name": "At-least-once delivery"
+    },
+    {
+      "id": "backend.resilience.rate-limiting",
+      "name": "Rate limiting"
+    }
+  ],
+  "files": [
+    {
+      "path": "worker.ts",
+      "line_count": 470
+    },
+    {
+      "path": "lock-manager.ts",
+      "line_count": 153
+    },
+    {
+      "path": "async-fifo-queue.ts",
+      "line_count": 196
+    },
+    {
+      "path": "types.ts",
+      "line_count": 161
+    }
+  ],
+  "license": {
+    "spdx": "MIT",
+    "attribution": "Adapted from BullMQ (c) 2018 BullForce Labs AB and contributors, MIT License. Trimmed and stubbed for this exercise.",
+    "source_url": "https://github.com/taskforcesh/bullmq/tree/6dc4745f1121e68dcbc77d5e59fb88d1b17cb5af"
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "dimension": "understanding",
+      "text": "Walk through what happens from mainLoop fetching a job to the job completing."
+    },
+    {
+      "id": "Q2",
+      "dimension": "understanding",
+      "text": "How does mainLoop limit how many jobs run at once?"
+    },
+    {
+      "id": "Q3",
+      "dimension": "understanding",
+      "text": "What is the LockManager for, and when does it renew locks?"
+    },
+    {
+      "id": "Q4",
+      "dimension": "bugs",
+      "text": "Is there anything in how this worker processes jobs that could cause a job to run more than once? Under what conditions? Point to the lines with a code comment if you can."
+    },
+    {
+      "id": "Q5",
+      "dimension": "design",
+      "text": "Why does processJob call untrackJob in several places, including finally?"
+    },
+    {
+      "id": "Q6",
+      "dimension": "design",
+      "text": "Why are DelayedError and WaitingError handled differently from other errors?"
+    },
+    {
+      "id": "Q7",
+      "dimension": "improvements",
+      "text": "How would you make duplicate processing visible in production?"
+    },
+    {
+      "id": "Q8",
+      "dimension": "improvements",
+      "text": "What would you change so a long-running processor is safe?"
+    }
+  ]
+}

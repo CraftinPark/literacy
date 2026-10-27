@@ -1,0 +1,31 @@
+# Trusted source pool (v1, TypeScript). Verify every license by hand at the pinned commit.
+# Target: ~5 repos. Two slots open (e.g. a Postgres client/pool for backend.data).
+
+- id: bullmq
+  url: https://github.com/taskforcesh/bullmq
+  license: MIT
+  language: typescript
+  pinned_commit: 6dc4745f1121e68dcbc77d5e59fb88d1b17cb5af
+  concepts: [backend.messaging.queues-consumers, backend.messaging.at-least-once-delivery,
+             backend.resilience.rate-limiting, backend.resilience.graceful-shutdown,
+             backend.concurrency.thread-worker-pools]
+  notes: Much atomic logic lives in Redis Lua scripts; prefer TS files that stand alone
+         (worker.ts excerpts, async-fifo-queue.ts, lock-manager.ts).
+
+- id: cockatiel
+  url: https://github.com/connor4312/cockatiel
+  license: MIT
+  language: typescript
+  pinned_commit: TBD
+  concepts: [backend.resilience.retries-backoff, backend.resilience.circuit-breakers,
+             backend.resilience.timeouts]
+  notes: Polly-inspired resilience policies, zero dependencies, small and well typed.
+
+- id: powertools-lambda-typescript
+  url: https://github.com/aws-powertools/powertools-lambda-typescript
+  license: MIT-0
+  language: typescript
+  pinned_commit: TBD
+  concepts: [backend.api.idempotency]
+  notes: Use packages/idempotency; anchor on persistence/BasePersistenceLayer.ts
+         (key hashing, in-progress records, expiry).

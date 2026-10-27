@@ -1,0 +1,9 @@
+{
+  "name": "readcode-ts-check",
+  "private": true,
+  "description": "Pinned TypeScript toolchain for the compile check (tools/compile_check.py). Versions match the BullMQ commit used by readcode-002.",
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "5.9.3"
+  }
+}

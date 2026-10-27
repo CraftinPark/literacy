@@ -1,0 +1,102 @@
+ReadCode - Backend Taxonomy (Draft v0)
+Structure: field > area > concept   (e.g. backend.resilience.retry-backoff)
+Language is a separate facet. Bug patterns not yet included.
+
+backend.concurrency
+  - race conditions
+  - locking and lock ordering
+  - deadlocks
+  - thread and worker pools
+  - async/await pitfalls
+  - atomic operations
+  - shared state in request handlers
+
+backend.resilience
+  - timeouts
+  - retries and backoff
+  - circuit breakers
+  - rate limiting
+  - graceful degradation
+  - graceful shutdown
+
+backend.data
+  - transactions and isolation levels
+  - N+1 queries
+  - connection pooling
+  - migrations
+  - ORM pitfalls
+  - pagination
+  - optimistic vs pessimistic locking
+
+backend.caching
+  - cache invalidation
+  - TTLs and expiry
+  - cache stampedes
+  - cache-aside vs write-through
+  - stale reads
+
+backend.api
+  - REST design
+  - request validation
+  - idempotency
+  - versioning
+  - status codes and error responses
+  - serialization and deserialization
+
+backend.messaging
+  - queues and consumers
+  - at-least-once delivery
+  - deduplication
+  - message ordering
+  - dead-letter queues
+  - backpressure
+
+backend.errors
+  - error propagation
+  - error wrapping and context
+  - swallowed errors
+  - cleanup on error paths
+  - panics and exceptions at boundaries
+
+backend.resources
+  - memory leaks
+  - file and socket handle leaks
+  - streaming large payloads
+  - unbounded buffers
+  - context cancellation
+
+backend.security
+  - authentication
+  - authorization checks
+  - SQL injection
+  - input sanitization
+  - secrets handling
+  - session and token handling
+
+backend.observability
+  - structured logging
+  - metrics
+  - tracing
+  - health checks
+  - logging sensitive data
+
+backend.config
+  - configuration loading
+  - feature flags
+  - environment-specific behaviour
+  - defaults and validation
+
+backend.testing
+  - unit test design
+  - mocking and fakes
+  - flaky tests
+  - integration tests
+
+backend.design
+  - dependency injection
+  - layering (handler/service/repository)
+  - interface design
+  - coupling and cohesion
+  - code duplication
+
+Suggested starting areas: concurrency, resilience, data, errors.

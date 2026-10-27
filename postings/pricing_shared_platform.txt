@@ -1,0 +1,20 @@
+Software Dev Engineer, Pricing Shared Platform (Amazon)
+Input used for classification: first two description paragraphs + qualifications.
+(The full posting also contains responsibilities for an Echo Show/Fire store team
+and an "About the team" section for Pricing Error Detection; both were excluded
+because the posting is stitched together from three teams.)
+
+---
+
+Pricing Shared Services team owns the core set of systems which decides prices of products sold by Amazon Retail. The team owns system data vending, notification and price publishing systems which are used by multiple pricing strategy teams for building their price recommendation and submission of their recommended prices. These systems scale to thousands of TPS and computes prices for billions of listing every month. We are building new services that radically scales publishing capacity of our systems while making our services multi-tenant to support Amazon's growing number of businesses. We collaborate with product, science, and business teams to figure out new ideas. We innovate by applying state-of-the-art computer science to define, design, and build our systems. And we experiment with different approaches, eager to learn from whatever the results are while having fun along the way.
+
+To help meet these goals, we are looking for a passionate, talented Software Development Engineer. We are looking for someone who innovates, loves solving hard problems, and looks for 'yes' as the answer. As a Software Development Engineer, you will develop services using your expertise and experience with a variety of technologies. You will deep-dive into distributed systems to design and optimize for performance, maintainability, scalability, and extensibility. You will innovate and scale services, addressing problems that span new feature development to new system creation. You will design and write clean, maintainable code and integrate data from a large number of services. And you will contribute to the development of yourself and colleagues through peer code-reviews and mentoring, improving the technical knowledge and engineering practices of your team.
+
+Basic Qualifications
+- 3+ years of non-internship professional software development experience
+- 2+ years of non-internship design or architecture (design patterns, reliability and scaling) of new and existing systems experience
+- Experience programming with at least one software programming language
+
+Preferred Qualifications
+- 3+ years of full software development life cycle, including coding standards, code reviews, source control management, build processes, testing, and operations experience
+- Bachelor's degree in computer science or equivalent

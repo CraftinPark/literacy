@@ -20,6 +20,7 @@ export interface CodePaneHandle {
 
 interface Props {
   path: string
+  linking: boolean
   tokens: Token[][]
   marks: Map<number, LineMark>
   inserts: Map<number, ReactNode>          // rendered after the given line
@@ -49,7 +50,7 @@ const Row = memo(function Row({ n, tokens, mark, hit, active, selecting, onDown,
   const bg = yellow
     ? 'bg-[rgba(245,197,24,0.14)] shadow-[inset_3px_0_0_#F5C518]'
     : mark === 'saved'
-      ? 'bg-[rgba(80,140,255,0.13)] shadow-[inset_3px_0_0_#508CFF]'
+      ? 'bg-code-note/[0.13] shadow-[inset_3px_0_0_theme(colors.code.note)]'
       : active
         ? 'bg-[rgba(125,183,255,0.18)]'
         : hit
@@ -160,18 +161,19 @@ export const CodePane = forwardRef<CodePaneHandle, Props>(function CodePane(p, r
 
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-code-bg">
-      <div className="flex h-10 flex-none items-center justify-between border-b border-code-border bg-code-bar px-4 text-[12.5px] text-code-text">
-        <div className="flex items-center gap-2.5 font-mono">
-          <span>{p.path}</span>
-          {p.breadcrumb && (<><span className="text-code-dim">›</span><span className="text-code-dim">{p.breadcrumb}()</span></>)}
+      <div className="flex h-10 flex-none items-center justify-between gap-4 bg-code-bg px-4 text-[12.5px] text-code-text">
+        <div className="flex h-full min-w-0 items-center gap-2.5 font-mono">
+          <span className="flex-none">{p.path}</span>
+          {p.breadcrumb && (<><span className="text-code-dim">›</span><span className="truncate text-code-dim">{p.breadcrumb}()</span></>)}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-none items-center gap-4">
+          {p.linking && <span className="whitespace-nowrap text-bug">Linking: pick lines in any file</span>}
           <button type="button" onClick={p.onToggleFocus} disabled={!p.canFocus && !p.focus}
             title="Show only the lines around your comments"
-            className="rounded border border-code-border px-2 py-0.5 text-code-dim hover:text-code-text disabled:opacity-40">
+            className="rounded bg-code-hover px-2 py-0.5 text-code-dim hover:text-code-text disabled:opacity-40">
             {p.focus ? 'Show all code' : 'Collapse unrelated code'}
           </button>
-          <span className="text-code-dim">{p.tokens.length} lines · read-only</span>
+          <span className="whitespace-nowrap text-code-dim">{p.tokens.length} lines · read-only</span>
         </div>
       </div>
       <div ref={scroller} onScroll={onScroll} className={`flex-1 overflow-auto pb-24 pt-2.5 ${drag ? 'select-none' : ''}`}>

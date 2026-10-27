@@ -11,14 +11,15 @@ Usage:
 Exit code 0 if every example has no errors (warnings are allowed), 1 otherwise.
 Requires: pip install jsonschema   (optional: rfc3339-validator, rfc3987 for date/uri format checks)
 
-Example layout:
-    readcode-001/
+Example layout (schema_version 2):
+    readcode-002/
       public.json  key.json  manifest.json
-      code/...                      <- the only code the candidate sees
-      internal/baseline/...         <- clean reference code
-      internal/evidence/...         <- gate outputs referenced by the manifest
+      code/...                      <- the only code the candidate sees (built by tools/inject_bugs.py)
+      internal/baseline/...         <- clean, self-contained code, same paths as code/
+      internal/verification/...     <- e.g. tsconfig.json for the compile check
+      internal/evidence/...         <- compile check outputs referenced by the manifest
 """
-import argparse, hashlib, json, math, os, re, sys
+import argparse, hashlib, json, os, re, sys
 
 try:
     from jsonschema import Draft202012Validator, FormatChecker
@@ -26,8 +27,9 @@ except ImportError:
     sys.exit("This tool needs the 'jsonschema' package:  pip install jsonschema")
 
 FILES = ("public", "key", "manifest")
-KEY_ONLY_FIELDS = {"key_points", "anchors", "mechanism_anchors", "red_herrings", "fix", "grader_instructions"}
+KEY_ONLY_FIELDS = {"rubric", "point", "bugs", "description", "runtime_failure", "conditions", "fix", "grader_notes", "bug_id"}
 HINT_WORDS = re.compile(r"\b(BUG|FIXME|XXX|HACK|seeded|mutant|injected|vulnerab\w*)\b", re.I)
+DIMENSIONS = ("understanding", "bugs", "design", "improvements")
 
 
 def sha256(path):
@@ -77,9 +79,12 @@ def in_ranges(line, ranges):
     return any(r["start_line"] <= line <= r["end_line"] for r in ranges)
 
 
+
+
 def check_consistency(rep, ex, pub, key, man):
     name = os.path.basename(os.path.normpath(ex))
     code_dir = os.path.join(ex, "code")
+    base_dir = os.path.join(ex, "internal", "baseline")
 
     # ---- identity
     if not (pub["id"] == key["id"] == man["id"]):
@@ -88,9 +93,12 @@ def check_consistency(rep, ex, pub, key, man):
         rep.err("ids", f"id '{pub['id']}' does not match the folder name '{name}'")
     if pub["version"] != key["version"]:
         rep.err("versions", f"public.version={pub['version']} but key.version={key['version']}")
+    for field in ("language", "level"):
+        if pub[field] != man[field]:
+            rep.err(field, f"public says {pub[field]} but the manifest says {man[field]}")
 
     # ---- code files
-    lines_of = {}
+    lines_of, shipped_text = {}, {}
     for f in pub["files"]:
         p = os.path.join(code_dir, f["path"])
         if not os.path.isfile(p):
@@ -98,6 +106,7 @@ def check_consistency(rep, ex, pub, key, man):
             continue
         with open(p, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
+        shipped_text[f["path"]] = text
         lines_of[f["path"]] = text.split("\n")
         actual = len(text.splitlines())
         if actual != f["line_count"]:
@@ -116,122 +125,117 @@ def check_consistency(rep, ex, pub, key, man):
     def dupes(xs):
         return sorted({x for x in xs if xs.count(x) > 1})
     q_ids = [q["id"] for q in pub["questions"]]
-    d_ids = [d["id"] for d in pub["design_prompts"]]
-    for label, ids in (("public.questions", q_ids), ("public.design_prompts", d_ids),
-                       ("key.comprehension", [c["question_id"] for c in key["comprehension"]]),
-                       ("key.design", [d["prompt_id"] for d in key["design"]]),
-                       ("key.bugs", [b["id"] for b in key["bugs"]]),
-                       ("manifest.bugs", [b["id"] for b in man["bugs"]])):
+    for label, ids in (("public.questions", q_ids), ("key.bugs", [b["id"] for b in key["bugs"]]),
+                       ("key.rubric", [r["id"] for r in key["rubric"]]), ("manifest.bugs", [b["id"] for b in man["bugs"]])):
         if dupes(ids):
             rep.err(label, f"duplicate ids: {dupes(ids)}")
-    kq = {c["question_id"] for c in key["comprehension"]}
-    kd = {d["prompt_id"] for d in key["design"]}
-    if kq != set(q_ids):
-        rep.err("questions", f"public has {sorted(q_ids)} but key scores {sorted(kq)}")
-    if kd != set(d_ids):
-        rep.err("design", f"public has {sorted(d_ids)} but key scores {sorted(kd)}")
     kb = {b["id"] for b in key["bugs"]}
     mb = {b["id"] for b in man["bugs"]}
     if kb != mb:
         rep.err("bugs", f"key lists {sorted(kb)} but manifest records {sorted(mb)}")
+    for d in DIMENSIONS:
+        if not any(q["dimension"] == d for q in pub["questions"]):
+            rep.warn("public.questions", f"no question for the '{d}' dimension")
 
-    # ---- weights
-    close = lambda a, b: math.isclose(a, b, abs_tol=1e-6)
-    sec = key["scoring"]["sections"]
-    sums = {"comprehension": sum(c["weight"] for c in key["comprehension"]),
-            "bugs": sum(b["weight"] for b in key["bugs"]),
-            "design": sum(d["weight"] for d in key["design"]),
-            "improvements": sum(t["weight"] for t in key["improvements"]["expected_themes"])}
-    for s, total in sums.items():
-        if not close(total, sec[s]):
-            rep.err("key.scoring", f"{s}: item weights sum to {total} but the section is {sec[s]}")
-    if not close(key["improvements"]["weight"], sec["improvements"]):
-        rep.err("key.improvements", f"weight {key['improvements']['weight']} != section {sec['improvements']}")
-    if not close(sum(sec.values()), key["scoring"]["total"]):
-        rep.err("key.scoring", f"sections sum to {sum(sec.values())}, total is {key['scoring']['total']}")
+    # ---- rubric
+    for r in key["rubric"]:
+        if r["question_id"] not in q_ids:
+            rep.err(f"key.rubric[{r['id']}]", f"unknown question {r['question_id']}")
+        if "bug_id" in r and r["bug_id"] not in kb:
+            rep.err(f"key.rubric[{r['id']}]", f"unknown bug {r['bug_id']}")
+    for q in q_ids:
+        if not any(r["question_id"] == q and r["kind"] == "required" for r in key["rubric"]):
+            rep.err("key.rubric", f"question {q} has no required rubric point")
+    for b in sorted(kb):
+        if not any(r.get("bug_id") == b and r["kind"] == "required" for r in key["rubric"]):
+            rep.err("key.rubric", f"bug {b} has no required rubric point")
+    if len(key["bugs"]) == 1 and key["bugs"][0]["pattern"] != man["bug_pattern"]:
+        rep.err("bug_pattern", f"key says {key['bugs'][0]['pattern']} but the manifest says {man['bug_pattern']}")
 
     # ---- line ranges in the key
-    def check_range(where, r):
-        if r["file"] not in lines_of:
-            rep.err(where, f"unknown file '{r['file']}'")
-        elif r["start_line"] > r["end_line"] or r["end_line"] > len(lines_of[r["file"]]):
-            rep.err(where, f"lines {r['start_line']}-{r['end_line']} are outside {r['file']}")
     for b in key["bugs"]:
         for r in b["locations"]:
-            check_range(f"key.bugs[{b['id']}]", r)
-    for i, h in enumerate(key["red_herrings"]):
-        for r in h.get("locations", []):
-            check_range(f"key.red_herrings[{i}]", r)
+            where = f"key.bugs[{b['id']}]"
+            if r["file"] not in lines_of:
+                rep.err(where, f"unknown file '{r['file']}'")
+            elif r["start_line"] > r["end_line"] or r["end_line"] > len(lines_of[r["file"]]):
+                rep.err(where, f"lines {r['start_line']}-{r['end_line']} are outside {r['file']}")
 
-    # ---- manifest <-> code <-> key
-    baseline_text = None
-    bpath = man["baseline"].get("path")
-    if bpath:
-        full = os.path.join(ex, bpath)
-        if not os.path.isfile(full):
-            rep.err("manifest.baseline", f"{bpath} does not exist")
-        else:
-            baseline_text = open(full, encoding="utf-8", errors="replace").read()
-            if sha256(full) != man["baseline"]["sha256"]:
-                rep.err("manifest.baseline", "sha256 does not match the baseline file")
-    else:
-        rep.warn("manifest.baseline", "no baseline path given; cannot check that each bug's clean text exists")
+    # ---- manifest <-> files on disk
+    for section, folder in (("baseline", base_dir), ("shipped", code_dir)):
+        listed = {f["path"] for f in man[section]["files"]}
+        if listed != declared:
+            rep.err(f"manifest.{section}", f"lists {sorted(listed)} but public.files lists {sorted(declared)}")
+        for f in man[section]["files"]:
+            p = os.path.join(folder, f["path"])
+            if not os.path.isfile(p):
+                rep.err(f"manifest.{section}", f"{os.path.relpath(p, ex)} does not exist")
+            elif sha256(p) != f["sha256"]:
+                rep.err(f"manifest.{section}", f"{f['path']} was modified after the compile check ran (sha256 mismatch)")
+        ev = man[section]["compile_check"]["evidence_file"]
+        if not os.path.isfile(os.path.join(ex, ev)):
+            rep.err(f"manifest.{section}", f"evidence file {ev} is missing")
+        if not man[section]["compile_check"]["passed"]:
+            rep.warn("compile", f"{section} has not passed the compile check")
+    sources_to = sorted(s["code_path"] for s in man["sources"])
+    for cp in sources_to:
+        if cp not in declared:
+            rep.err("manifest.sources", f"code_path '{cp}' is not a file in public.files")
 
-    shipped_paths = {s["path"] for s in man["shipped"]}
-    if shipped_paths != declared:
-        rep.err("manifest.shipped", f"lists {sorted(shipped_paths)} but public.files lists {sorted(declared)}")
-    for s in man["shipped"]:
-        p = os.path.join(code_dir, s["path"])
-        if os.path.isfile(p) and sha256(p) != s["sha256"]:
-            rep.err("manifest.shipped", f"{s['path']} was modified after the checks ran (sha256 mismatch)")
-
+    # ---- bugs: recorded change <-> shipped code <-> baseline <-> key
+    baseline_text = {}
+    for f in man["baseline"]["files"]:
+        p = os.path.join(base_dir, f["path"])
+        if os.path.isfile(p):
+            baseline_text[f["path"]] = open(p, encoding="utf-8", errors="replace").read()
     key_bug = {b["id"]: b for b in key["bugs"]}
+    reverted = dict(shipped_text)
     for b in man["bugs"]:
         where = f"manifest.bugs[{b['id']}]"
         lines = lines_of.get(b["file"])
         if lines is None:
             rep.err(where, f"unknown file '{b['file']}'")
-        else:
-            new_lines = b["change"]["new"].rstrip("\n").split("\n")
-            got = lines[b["line"] - 1: b["line"] - 1 + len(new_lines)]
-            if got != new_lines:
-                rep.err(where, f"the shipped code at line {b['line']} does not match the recorded change")
-        if baseline_text is not None and b["change"]["old"] not in baseline_text:
-            rep.err(where, "the recorded clean text is not in the baseline file")
+            continue
+        new_lines = b["change"]["new"].rstrip("\n").split("\n")
+        if lines[b["line"] - 1: b["line"] - 1 + len(new_lines)] != new_lines:
+            rep.err(where, f"the shipped code at line {b['line']} does not match the recorded change")
+        if baseline_text.get(b["file"], "").count(b["change"]["old"]) != 1:
+            rep.err(where, "the recorded clean text does not occur exactly once in the baseline file")
         if b["id"] in key_bug and not in_ranges(b["line"], key_bug[b["id"]]["locations"]):
             rep.err(where, f"line {b['line']} is not inside any location the key gives for this bug")
-        ev = os.path.join(ex, b["gate_b"]["evidence_file"])
-        if not os.path.isfile(ev):
-            rep.err(where, f"evidence file {b['gate_b']['evidence_file']} is missing")
-        if b["gate_b"]["detected"] != (b["gate_b"]["detected_by"] != "none"):
-            rep.err(where, "detected and detected_by contradict each other")
-    ev = man["baseline"]["gate_a"].get("evidence_file")
-    if ev and not os.path.isfile(os.path.join(ex, ev)):
-        rep.err("manifest.baseline", f"evidence file {ev} is missing")
+        reverted[b["file"]] = reverted[b["file"]].replace(b["change"]["new"], b["change"]["old"], 1)
+    # Undoing every recorded bug must give back the baseline exactly: no unrecorded differences.
+    for path, text in reverted.items():
+        if path in baseline_text and text != baseline_text[path]:
+            rep.err("baseline", f"{path}: code/ differs from the baseline by more than the recorded bugs")
+
+    # ---- concepts shown to the candidate == everything the manifest says the example tests or contains
+    shown = [c["id"] for c in pub["concepts"]]
+    if dupes(shown):
+        rep.err("public.concepts", f"duplicate ids: {dupes(shown)}")
+    if set(shown) != set(man["tests"]) | set(man["present"]):
+        rep.err("concepts", f"public shows {sorted(set(shown))} but the manifest tests + present is "
+                            f"{sorted(set(man['tests']) | set(man['present']))}")
 
     # ---- licence and review gating
-    if pub["license"]["spdx"] != man["source"]["license_spdx"]:
-        rep.err("license", f"public says {pub['license']['spdx']} but the manifest says {man['source']['license_spdx']}")
-    status = man["review"]["status"]
-    undetected = [b["id"] for b in man["bugs"] if not b["gate_b"]["detected"]]
-    if status == "approved" and undetected:
-        rep.err("review", f"approved, but these bugs were never detected by a check: {undetected}")
-    elif undetected:
-        rep.warn("gates", f"bugs not detected by any check (cannot be approved yet): {undetected}")
-    if not man["baseline"]["gate_a"]["passed"] and status != "approved":
-        rep.warn("gates", "gate A (clean baseline) has not passed")
-    if "publish" in man and status != "approved":
-        rep.err("publish", "has publish info but review status is not 'approved'")
+    if pub["license"]["spdx"] != man["license"]:
+        rep.err("license", f"public says {pub['license']['spdx']} but the manifest says {man['license']}")
+    for s in man["sources"]:
+        if s["license_spdx"] != man["license"]:
+            rep.warn("license", f"{s['path']} is {s['license_spdx']} but the example is {man['license']}")
 
     # ---- the public file must not leak grader-only content
     leaked = sorted(KEY_ONLY_FIELDS & set(walk_keys(pub)))
     if leaked:
         rep.err("public.json", f"contains grader-only fields: {leaked}")
     blob = json.dumps(pub).lower()
-    for c in key["comprehension"]:
-        for kp in c["key_points"]:
-            if len(kp) > 25 and kp.lower() in blob:
-                rep.err("public.json", f"contains an answer key point verbatim: {kp[:50]!r}")
+    for r in key["rubric"]:
+        if r["point"].lower() in blob:
+            rep.err("public.json", f"contains rubric point {r['id']} verbatim")
+    for b in key["bugs"]:
+        for field in ("description", "fix", "title"):
+            if b[field].lower() in blob:
+                rep.err("public.json", f"contains the {field} of bug {b['id']} verbatim")
 
 
 def validate(ex, validators):

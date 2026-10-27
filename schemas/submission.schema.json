@@ -4,79 +4,189 @@
   "title": "ReadCode candidate submission (what the candidate hands in; read by the grader)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "exercise_id", "exercise_version", "candidate_id", "time_spent_minutes", "comprehension", "bugs", "design", "improvements"],
+  "required": [
+    "schema_version",
+    "exercise_id",
+    "exercise_version",
+    "candidate_id",
+    "time_spent_minutes",
+    "answers",
+    "bugs",
+    "improvements"
+  ],
   "properties": {
-    "schema_version": {"const": 1},
-    "exercise_id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
-    "exercise_version": {"type": "integer", "minimum": 1},
-    "candidate_id": {"type": "string", "minLength": 1},
-    "submitted_at": {"type": "string", "format": "date-time"},
-    "time_spent_minutes": {"type": "number", "minimum": 0},
-    "comprehension": {
-      "description": "Answer text per question id (C1, C2, ...). Unanswered questions may be omitted or empty.",
+    "schema_version": {
+      "const": 2
+    },
+    "exercise_id": {
+      "type": "string",
+      "pattern": "^readcode-[0-9]{3,}$"
+    },
+    "exercise_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "submitted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "time_spent_minutes": {
+      "type": "number",
+      "minimum": 0
+    },
+    "answers": {
+      "description": "Answer text per question id (Q1, Q2, ...), any dimension. Unanswered questions may be omitted or empty.",
       "type": "object",
-      "propertyNames": {"pattern": "^C[0-9]+$"},
-      "additionalProperties": {"type": "string"}
+      "propertyNames": {
+        "pattern": "^Q[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "bugs": {
       "description": "Line-anchored bug comments. ids are the candidate's own (e.g. c1), not key bug ids.",
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "locations", "severity", "confidence", "explanation"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "locations",
+          "severity",
+          "confidence",
+          "explanation"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "locations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
-          "function": {"type": "string"},
-          "category": {"type": "string"},
-          "severity": {"enum": ["low", "medium", "high", "critical"]},
-          "confidence": {"enum": ["guess", "fairly_sure", "certain"]},
-          "explanation": {"type": "string"},
-          "fix": {"type": "string"}
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "locations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/range"
+            }
+          },
+          "function": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "confidence": {
+            "enum": [
+              "guess",
+              "fairly_sure",
+              "certain"
+            ]
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "fix": {
+            "type": "string"
+          }
         }
       }
-    },
-    "design": {
-      "description": "Answer text per design prompt id (D1, D2, ...).",
-      "type": "object",
-      "propertyNames": {"pattern": "^D[0-9]+$"},
-      "additionalProperties": {"type": "string"}
     },
     "improvements": {
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["title"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title"
+        ],
         "properties": {
-          "title": {"type": "string", "minLength": 1},
-          "detail": {"type": "string"},
-          "locations": {"type": "array", "items": {"$ref": "#/$defs/range"}}
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "detail": {
+            "type": "string"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/range"
+            }
+          }
         }
-      }
+      },
+      "description": "Free-form suggestions beyond the improvement questions, plus line comments of type Improvement."
     },
     "notes": {
-      "description": "Line-anchored comments of type Question or Design concern. Not scored directly; the judge may use design concerns as supporting context for the design section.",
+      "description": "Line-anchored comments of type Question or Design concern. Not scored directly; context for whoever grades the design questions.",
       "type": "array",
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "type", "locations", "text"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "type",
+          "locations",
+          "text"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "type": {"enum": ["question", "design"]},
-          "locations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
-          "text": {"type": "string"}
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "enum": [
+              "question",
+              "design"
+            ]
+          },
+          "locations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/range"
+            }
+          },
+          "text": {
+            "type": "string"
+          }
         }
       }
     }
   },
   "$defs": {
     "range": {
-      "type": "object", "additionalProperties": false,
-      "required": ["file", "start_line", "end_line"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "start_line",
+        "end_line"
+      ],
       "properties": {
-        "file": {"type": "string"},
-        "start_line": {"type": "integer", "minimum": 1},
-        "end_line": {"type": "integer", "minimum": 1}
+        "file": {
+          "type": "string"
+        },
+        "start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }

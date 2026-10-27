@@ -1,7 +1,18 @@
-import { forwardRef } from 'react'
+import { forwardRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { OutlineSection } from '../lib/outline'
 
+export interface FileEntry {
+  path: string
+  lines: number
+  comments: number
+}
+
 interface Props {
+  rootName: string
+  files: FileEntry[]
+  activeFile: string
+  onOpenFile: (path: string) => void
   sections: OutlineSection[]
   currentFn: string | undefined
   savedCount: Map<string, number>
@@ -13,53 +24,168 @@ interface Props {
   onJump: (line: number) => void
 }
 
-export const Sidebar = forwardRef<HTMLInputElement, Props>(function Sidebar(p, searchRef) {
+// Editor-style file-type badges, keyed by extension.
+const FILE_BADGE: Record<string, [string, string]> = {
+  ts: ['TS', '#4A9FE8'], tsx: ['TS', '#4A9FE8'], js: ['JS', '#E8D44D'], jsx: ['JS', '#E8D44D'],
+  c: ['C', '#7FA7D9'], h: ['h', '#B48EE0'], py: ['py', '#E8C547'], go: ['go', '#5DC9E2'],
+}
+
+function FileIcon({ path }: { path: string }) {
+  const badge = FILE_BADGE[path.split('.').pop() ?? '']
+  if (!badge) {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="flex-none text-code-dim">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" />
+      </svg>
+    )
+  }
   return (
-    <aside className="flex w-56 flex-none flex-col gap-1.5 overflow-y-auto border-r border-line bg-panel px-3 py-4">
-      <div className="relative mb-2">
-        <input ref={searchRef} type="search" aria-label="Search code" placeholder="Search code (Ctrl+F)" value={p.query}
+    <span aria-hidden="true" style={{ color: badge[1] }}
+      className="w-4 flex-none text-center font-sans text-[10px] font-bold leading-none tracking-tight">{badge[0]}</span>
+  )
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+      className={`flex-none transition-transform ${open ? 'rotate-90' : ''}`}>
+      <path d="M6 4l4 4-4 4z" />
+    </svg>
+  )
+}
+
+/** Outline symbol icons, coloured like an editor's: classes orange, methods purple, other declarations blue. */
+function SymbolIcon({ kind }: { kind: 'class' | 'method' | 'other' }) {
+  const color = kind === 'class' ? '#E8A657' : kind === 'method' ? '#B48EE0' : '#7DB7FF'
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.3" aria-hidden="true" className="flex-none">
+      {kind === 'method' ? (
+        <><path d="M8 1.8l5.2 3v6.4L8 14.2l-5.2-3V4.8z" /><path d="M2.8 4.8L8 7.8l5.2-3M8 7.8v6.4" /></>
+      ) : kind === 'class' ? (
+        <><rect x="2" y="5" width="7" height="7" rx="1" /><path d="M6 5V3h8v7h-5" /></>
+      ) : (
+        <><path d="M3 4h10M3 8h10M3 12h6" /></>
+      )}
+    </svg>
+  )
+}
+
+function Count({ n, drafting = false }: { n: number; drafting?: boolean }) {
+  return (
+    <b className={`min-w-4 rounded-lg px-[5px] py-px text-center font-sans text-[11px] font-semibold leading-4 ${drafting ? 'bg-bug text-bug-ink' : 'bg-code-note text-white'}`}>
+      {n}
+    </b>
+  )
+}
+
+function Section({ title, open, onToggle, children }: { title: ReactNode; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div className="flex flex-none flex-col">
+      <button type="button" onClick={onToggle} aria-expanded={open}
+        className="flex h-[22px] w-full items-center gap-1 px-1 text-left text-[11px] font-bold tracking-[0.04em] text-code-text hover:bg-code-hover">
+        <Chevron open={open} />
+        <span className="min-w-0 truncate">{title}</span>
+      </button>
+      {open && children}
+    </div>
+  )
+}
+
+const ROW = 'flex h-[22px] w-full items-center gap-1.5 pr-2 text-left text-[13px] leading-none'
+const rowState = (active: boolean) =>
+  active ? 'bg-code-select text-white shadow-[inset_1px_0_0_theme(colors.code.note)]' : 'text-code-text hover:bg-code-hover'
+
+export const Sidebar = forwardRef<HTMLInputElement, Props>(function Sidebar(p, searchRef) {
+  const [filesOpen, setFilesOpen] = useState(true)
+  const [rootOpen, setRootOpen] = useState(true)
+  const [outlineOpen, setOutlineOpen] = useState(true)
+  const [closed, setClosed] = useState<Set<number>>(new Set())
+  const toggleSection = (line: number) =>
+    setClosed((c) => { const n = new Set(c); n.has(line) ? n.delete(line) : n.add(line); return n })
+
+  return (
+    <aside className="flex w-60 flex-none flex-col overflow-y-auto bg-canvas font-sans text-code-text">
+      <div className="flex h-[35px] flex-none items-center px-4 text-[11px] font-medium tracking-[0.06em] text-code-dim">EXPLORER</div>
+      <div className="flex-none px-3 pb-2">
+        <input ref={searchRef} type="search" aria-label="Search code" placeholder="Search in file (Ctrl+F)" value={p.query}
           onChange={(e) => p.onQuery(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') { e.preventDefault(); p.onNextHit(e.shiftKey) }
             if (e.key === 'Escape') p.onQuery('')
           }}
-          className="h-[34px] w-full rounded-lg border border-line-strong bg-white px-2.5 text-[13px] outline-none focus:border-accent" />
-        {p.query && <div className="mt-1 px-1 text-[11px] text-muted">{p.hitInfo}</div>}
+          className="h-[28px] w-full rounded-md bg-field px-2.5 text-[12.5px] text-code-text placeholder:text-code-dim outline-none ring-accent focus:ring-1" />
+        {p.query && <div className="mt-1 px-0.5 text-[11px] text-code-dim">{p.hitInfo}</div>}
       </div>
-      <div className="px-2 pb-1 text-[11px] font-semibold tracking-[0.06em] text-muted">OUTLINE</div>
-      {p.sections.map((s) => (
-        <div key={s.line} className="flex flex-col gap-0.5">
-          <button type="button" onClick={() => p.onJump(s.line)}
-            className="w-full rounded-md px-2 py-1.5 text-left text-[12.5px] text-ink hover:bg-chip">
-            {s.title}
-          </button>
-          {s.functions.map((f) => {
-            const active = f.name === p.currentFn
-            const saved = p.savedCount.get(f.name) ?? 0
-            const drafting = p.draftFn === f.name
-            return (
-              <button key={f.name} type="button" onClick={() => p.onJump(f.line)}
-                className={`flex w-full items-center justify-between rounded-md py-1.5 pl-4 pr-2 text-left font-mono text-[12.5px] text-ink ${active ? 'bg-accent-soft font-medium' : 'hover:bg-chip'}`}>
-                <span className="truncate">{f.name}</span>
-                <span className="flex items-center gap-1.5 text-muted">
-                  {f.line}
-                  {(saved > 0 || drafting) && (
-                    <b className={`min-w-4 rounded-lg px-[5px] py-px text-center font-sans text-[11px] font-semibold ${drafting ? 'bg-bug text-ink' : 'bg-accent text-white'}`}>
-                      {saved + (drafting ? 1 : 0)}
-                    </b>
+
+      <Section title="FILES" open={filesOpen} onToggle={() => setFilesOpen((o) => !o)}>
+        <button type="button" onClick={() => setRootOpen((o) => !o)} aria-expanded={rootOpen}
+          className={`${ROW} pl-2 font-semibold ${rowState(false)}`}>
+          <Chevron open={rootOpen} />
+          <span className="truncate">{p.rootName}</span>
+        </button>
+        {rootOpen && (
+          <div role="tablist" aria-label="Files" aria-orientation="vertical" className="relative flex flex-col">
+                        {p.files.map((f) => {
+              const active = f.path === p.activeFile
+              return (
+                <button key={f.path} role="tab" type="button" aria-selected={active} onClick={() => p.onOpenFile(f.path)}
+                  title={`${f.path} · ${f.lines} lines`} className={`${ROW} pl-[26px] ${rowState(active)}`}>
+                  <FileIcon path={f.path} />
+                  <span className="min-w-0 flex-1 truncate">{f.path}</span>
+                  {f.comments > 0 && <Count n={f.comments} />}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </Section>
+
+      <div className="h-3 flex-none" />
+      <Section open={outlineOpen} onToggle={() => setOutlineOpen((o) => !o)}
+        title={<>OUTLINE <span className="font-normal tracking-normal text-code-dim">· {p.activeFile}</span></>}>
+        {p.sections.map((s) => {
+          const isClass = s.title.startsWith('class ')
+          const open = !closed.has(s.line)
+          return (
+            <div key={s.line} className="flex flex-none flex-col">
+              <div className={`${ROW} pl-2 ${rowState(false)}`}>
+                {s.functions.length > 0 ? (
+                  <button type="button" aria-label={open ? 'Collapse' : 'Expand'} aria-expanded={open} onClick={() => toggleSection(s.line)}>
+                    <Chevron open={open} />
+                  </button>
+                ) : <span className="w-3 flex-none" />}
+                <button type="button" onClick={() => p.onJump(s.line)} className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <SymbolIcon kind={isClass ? 'class' : 'other'} />
+                  <span className="truncate">{s.title.replace(/^(class|interface|type|const|enum) /, '')}</span>
+                  {!isClass && s.title !== 'Functions' && s.title !== 'Top of file' && (
+                    <span className="flex-none text-[11.5px] text-code-dim">{s.title.split(' ')[0]}</span>
                   )}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      ))}
+                </button>
+              </div>
+              {open && s.functions.map((f) => {
+                const active = f.name === p.currentFn
+                const saved = p.savedCount.get(f.name) ?? 0
+                const drafting = p.draftFn === f.name
+                return (
+                  <button key={`${f.name}:${f.line}`} type="button" onClick={() => p.onJump(f.line)}
+                    className={`${ROW} pl-[34px] ${rowState(active)}`}>
+                    <SymbolIcon kind="method" />
+                    <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                    {(saved > 0 || drafting) && <Count n={saved + (drafting ? 1 : 0)} drafting={drafting} />}
+                    <span className="flex-none text-[11.5px] text-code-dim">{f.line}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })}
+      </Section>
+
       <div className="flex-1" />
-      <div className="mt-3 rounded-lg border border-line bg-white p-2.5 text-xs leading-[1.45] text-muted">
-        <b className="font-semibold text-ink">Tip</b>
-        <br />
-        Drag across line numbers to select a range, then describe what is wrong and why it fails. Shift-click extends a selection.
-      </div>
+      <p className="m-3 mt-6 flex-none text-[11.5px] leading-[1.45] text-code-dim">
+        <b className="font-semibold text-code-text">Tip:</b> drag across line numbers to select a range, then describe
+        what is wrong and why it fails. Shift-click extends a selection.
+      </p>
     </aside>
   )
 })

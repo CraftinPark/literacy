@@ -1,0 +1,115 @@
+{
+  "schema_version": 2,
+  "id": "readcode-002",
+  "sources": [
+    {
+      "repo": "https://github.com/taskforcesh/bullmq",
+      "commit": "6dc4745f1121e68dcbc77d5e59fb88d1b17cb5af",
+      "path": "src/classes/worker.ts",
+      "sha256": "6d2716be0f50b2ea8a38bc894a91598adf72e238fffd99aecb3b641ff2bc8b64",
+      "license_spdx": "MIT",
+      "license_evidence": "LICENSE at the commit starts 'MIT License / Copyright (c) 2018 BullForce Labs AB and contributors'; package.json has \"license\": \"MIT\". Checked by Claude 2026-10-26; needs a human check.",
+      "code_path": "worker.ts"
+    },
+    {
+      "repo": "https://github.com/taskforcesh/bullmq",
+      "commit": "6dc4745f1121e68dcbc77d5e59fb88d1b17cb5af",
+      "path": "src/classes/async-fifo-queue.ts",
+      "sha256": "a41fc7f4704765806bfa20f0acd3c8ac57af34638fe6148a515fca8a05be073c",
+      "license_spdx": "MIT",
+      "license_evidence": "File header: '(c) 2017-2025 BullForce Labs AB, MIT Licensed.' Same LICENSE as above.",
+      "code_path": "async-fifo-queue.ts"
+    },
+    {
+      "repo": "https://github.com/taskforcesh/bullmq",
+      "commit": "6dc4745f1121e68dcbc77d5e59fb88d1b17cb5af",
+      "path": "src/classes/lock-manager.ts",
+      "sha256": "4fefb841027894b9dbabab8e580229a2c6802bb3ffc60dd7b4393cecddcd62f0",
+      "license_spdx": "MIT",
+      "license_evidence": "No file header; covered by the repo LICENSE (MIT) above.",
+      "code_path": "lock-manager.ts"
+    }
+  ],
+  "tests": [
+    "backend.messaging.queues-consumers",
+    "backend.messaging.at-least-once-delivery"
+  ],
+  "present": [
+    "backend.concurrency.thread-worker-pools",
+    "backend.resilience.rate-limiting"
+  ],
+  "language": "typescript",
+  "level": "mid",
+  "origin": "adapted",
+  "bug_pattern": "lock-released-before-processing",
+  "license": "MIT",
+  "taxonomy_version": "backend-v0",
+  "baseline": {
+    "files": [
+      {
+        "path": "worker.ts",
+        "sha256": "d4ddff7330a7901d6e035702dd4351a0b0c35427039ac9222ff3ad0116da5a43"
+      },
+      {
+        "path": "lock-manager.ts",
+        "sha256": "393d4401d3ec54d98c821c985695b55e1077ed4809aa7790fb56deb8c3d0637c"
+      },
+      {
+        "path": "async-fifo-queue.ts",
+        "sha256": "a41fc7f4704765806bfa20f0acd3c8ac57af34638fe6148a515fca8a05be073c"
+      },
+      {
+        "path": "types.ts",
+        "sha256": "9199d524fc1eefcd02ca3e98ef7aeab7387fda7ba3fd1a00e01b5cae8889d2a0"
+      }
+    ],
+    "changes_summary": "async-fifo-queue.ts is unchanged. lock-manager.ts: telemetry (trace/span) removed from extendLocks; cancelJob, cancelAllJobs, getActiveJobCount, isRunning, getTrackedJobIds dropped. worker.ts: excerpt of run, mainLoop, _getNextJob, processJob, getUnrecoverableErrorMessage, handleCompleted, handleFailed and their helpers; telemetry removed (trace/span, which de-indents processJob); extends EventEmitter instead of QueueBase; short constructor with the original defaults; Redis calls replaced by the QueueBackend stub; moveToActive/nextJobFromJobData simplified to take a Job instead of raw job data; retryIfFailed simplified to retry connection errors once; close(), pause/resume, the stalled checker, sandboxing and job schedulers dropped. types.ts is new: stand-ins for Job, Processor, WorkerOptions (doc comments copied from BullMQ), QueueBackend, LockManagerWorkerContext, error classes, delay.",
+    "compile_check": {
+      "passed": true,
+      "tool": "tsc 5.9.3",
+      "command": "tsc --noEmit -p internal/verification/tsconfig.json (files: worker.ts, lock-manager.ts, async-fifo-queue.ts, types.ts)",
+      "evidence_file": "internal/evidence/compile_baseline.txt"
+    }
+  },
+  "shipped": {
+    "files": [
+      {
+        "path": "worker.ts",
+        "sha256": "f0ac214d50a796c6395169c046e653b4d773a9c2d9f00dcc26af4cb94c2a8376"
+      },
+      {
+        "path": "lock-manager.ts",
+        "sha256": "393d4401d3ec54d98c821c985695b55e1077ed4809aa7790fb56deb8c3d0637c"
+      },
+      {
+        "path": "async-fifo-queue.ts",
+        "sha256": "a41fc7f4704765806bfa20f0acd3c8ac57af34638fe6148a515fca8a05be073c"
+      },
+      {
+        "path": "types.ts",
+        "sha256": "9199d524fc1eefcd02ca3e98ef7aeab7387fda7ba3fd1a00e01b5cae8889d2a0"
+      }
+    ],
+    "compile_check": {
+      "passed": true,
+      "tool": "tsc 5.9.3",
+      "command": "tsc --noEmit -p internal/verification/tsconfig.json (files: worker.ts, lock-manager.ts, async-fifo-queue.ts, types.ts)",
+      "evidence_file": "internal/evidence/compile_shipped.txt"
+    }
+  },
+  "bugs": [
+    {
+      "id": "B1",
+      "file": "worker.ts",
+      "line": 334,
+      "change": {
+        "old": "      const result = await this.callProcessJob(\n",
+        "new": "      this.lockManager.untrackJob(job.id);\n      const result = await this.callProcessJob(\n"
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "notes": "Built by Claude from internal/build-instructions.md; not yet reviewed. For the reviewer: (1) Length is 980 lines (worker 470, lock-manager 153, async-fifo-queue 196, types 161), over the 500-650 target; the rest is BullMQ's four-parameter generics and helpers mainLoop needs to compile. Dropping the generics would save ~60 lines but changes the original code. (2) close() was dropped for length, so graceful-shutdown is no longer in `present`. (3) Compile settings are BullMQ's own (strict, but strictNullChecks off), not plain --strict: async-fifo-queue.ts does not compile under strictNullChecks. (4) Q5 names untrackJob and Q8 says 'long-running': both point toward the bug. (5) The lockDuration doc comment in types.ts (copied from BullMQ) explains what happens when a lock is lost: the main clue, kept on purpose. (6) Licence checked by Claude from LICENSE and package.json at the commit; needs a human check."
+  }
+}

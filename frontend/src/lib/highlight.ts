@@ -1,4 +1,4 @@
-// Minimal C syntax colouring: enough to read comfortably, no dependencies.
+// Minimal C / TypeScript syntax colouring: enough to read comfortably, no dependencies.
 // Returns one token list per source line (block comments can span lines).
 
 export type TokenKind = 'kw' | 'const' | 'num' | 'str' | 'com' | 'pre' | 'plain'
@@ -7,30 +7,45 @@ export interface Token {
   text: string
 }
 
-const KEYWORDS = new Set(
+const C_KEYWORDS = new Set(
   `auto break case char const continue default do double else enum extern float for goto if inline int long
    register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while
    _Bool bool`.split(/\s+/),
 )
-const CONSTANTS = new Set(['NULL', 'true', 'false'])
+const TS_KEYWORDS = new Set(
+  `abstract any as async await boolean break case catch class const constructor continue declare default delete do
+   else enum export extends finally for from function get if implements import in instanceof interface keyof let new
+   never number object private protected public readonly return set static string super switch symbol this throw try
+   type typeof unknown var void while yield`.split(/\s+/),
+)
+const C_CONSTANTS = new Set(['NULL', 'true', 'false'])
+const TS_CONSTANTS = new Set(['null', 'undefined', 'true', 'false', 'Infinity', 'NaN'])
 
-const TOKEN = new RegExp(
+const STRING = String.raw`"(?:[^"\\\n]|\\.)*"?|'(?:[^'\\\n]|\\.)*'?`
+const tokenRe = (ts: boolean) => new RegExp(
   [
     String.raw`(?<com>//.*|/\*[\s\S]*?(?:\*/|$))`,
-    String.raw`(?<str>"(?:[^"\\\n]|\\.)*"?|'(?:[^'\\\n]|\\.)*'?)`,
-    String.raw`(?<num>\b(?:0[xX][\da-fA-F]+|\d+(?:\.\d+)?)[uUlLfF]*\b)`,
-    String.raw`(?<word>[A-Za-z_]\w*)`,
+    // TypeScript template literals may span lines.
+    `(?<str>${STRING}${ts ? '|`(?:[^`\\\\]|\\\\[\\s\\S])*`?' : ''})`,
+    String.raw`(?<num>\b(?:0[xX][\da-fA-F]+|\d+(?:\.\d+)?)[uUlLfFn]*\b)`,
+    String.raw`(?<word>[A-Za-z_$][\w$]*)`,
   ].join('|'),
   'g',
 )
 
-function classify(word: string): TokenKind {
-  if (KEYWORDS.has(word) || /_t$/.test(word)) return 'kw'
-  if (CONSTANTS.has(word) || /^[A-Z][A-Z0-9_]{2,}$/.test(word)) return 'const'
+function classify(word: string, ts: boolean): TokenKind {
+  if (ts ? TS_KEYWORDS.has(word) : C_KEYWORDS.has(word) || /_t$/.test(word)) return 'kw'
+  if ((ts ? TS_CONSTANTS : C_CONSTANTS).has(word) || /^[A-Z][A-Z0-9_]{2,}$/.test(word)) return 'const'
   return 'plain'
 }
 
 export function highlightC(source: string): Token[][] {
+  return highlight(source, 'c')
+}
+
+export function highlight(source: string, language: string): Token[][] {
+  const ts = language === 'typescript' || language === 'javascript'
+  const TOKEN = tokenRe(ts)
   const lines: Token[][] = [[]]
   const push = (kind: TokenKind, text: string) => {
     const parts = text.split('\n')
@@ -44,7 +59,7 @@ export function highlightC(source: string): Token[][] {
   const src = source.replace(/\r\n/g, '\n')
   const pre = /^[ \t]*#.*$/gm
   const preRanges: [number, number][] = []
-  for (let m; (m = pre.exec(src)); ) preRanges.push([m.index, m.index + m[0].length])
+  if (!ts) for (let m; (m = pre.exec(src)); ) preRanges.push([m.index, m.index + m[0].length])
   const inPre = (i: number) => preRanges.find(([a, b]) => i >= a && i < b)
 
   TOKEN.lastIndex = 0
@@ -62,7 +77,7 @@ export function highlightC(source: string): Token[][] {
     if (m.index < last) continue
     push('plain', src.slice(last, m.index))
     const g = m.groups!
-    const kind: TokenKind = g.com ? 'com' : g.str ? 'str' : g.num ? 'num' : classify(m[0])
+    const kind: TokenKind = g.com ? 'com' : g.str ? 'str' : g.num ? 'num' : classify(m[0], ts)
     push(kind, m[0])
     last = m.index + m[0].length
   }

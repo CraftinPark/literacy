@@ -1,0 +1,10 @@
+target: code/
+tool: tsc 5.9.3
+command: tsc --noEmit -p internal/verification/tsconfig.json (files: worker.ts, lock-manager.ts, async-fifo-queue.ts, types.ts)
+file: worker.ts sha256=f0ac214d50a796c6395169c046e653b4d773a9c2d9f00dcc26af4cb94c2a8376
+file: lock-manager.ts sha256=393d4401d3ec54d98c821c985695b55e1077ed4809aa7790fb56deb8c3d0637c
+file: async-fifo-queue.ts sha256=a41fc7f4704765806bfa20f0acd3c8ac57af34638fe6148a515fca8a05be073c
+file: types.ts sha256=9199d524fc1eefcd02ca3e98ef7aeab7387fda7ba3fd1a00e01b5cae8889d2a0
+result: PASS
+output:
+(none)

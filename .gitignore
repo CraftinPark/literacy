@@ -3,3 +3,4 @@ __pycache__/
 .pytest_cache/
 frontend/public/exercises/
 *.zip
+tools/ts/node_modules/

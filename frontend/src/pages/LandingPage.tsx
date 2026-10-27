@@ -25,27 +25,27 @@ function kw(line: string) {
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="flex h-14 items-center justify-between border-b border-line bg-white px-5">
+      <header className="flex h-14 items-center justify-between bg-canvas px-5">
         <Logo />
-        <a href="#/exercises" className="flex h-9 items-center rounded-lg bg-accent px-4 font-semibold text-white">Start practicing</a>
+        <a href="#/exercises" className="flex h-9 items-center rounded-lg bg-accent px-4 font-semibold text-accent-on">Start practicing</a>
       </header>
 
       <div className="mx-auto max-w-[1080px] px-4 py-16 md:py-24">
         <div className="mx-auto max-w-[760px] text-center">
           <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
-            Become code <span className="text-accent">fluent</span>
+            Become code <span className="text-accent-text">fluent</span>
           </h1>
           <p className="mt-5 text-base leading-relaxed text-muted md:text-lg">
             LeetCode in reverse. Instead of writing a solution, you read real code and review it. AI is solving the easy part,
             producing code. The part that can't be replaced is understanding it, evaluating it, and deciding whether it's right.
           </p>
-          <a href="#/exercises" className="mt-8 inline-flex h-11 items-center rounded-lg bg-accent px-6 text-[15px] font-semibold text-white">
-            Try exercise 001 →
+          <a href="#/exercise/readcode-002" className="mt-8 inline-flex h-11 items-center rounded-lg bg-accent px-6 text-[15px] font-semibold text-accent-on">
+            Try exercise 002 →
           </a>
         </div>
 
-        <div className="mt-16 overflow-hidden rounded-xl border border-line bg-code-bg shadow-[0_8px_28px_rgba(14,22,33,0.18)]">
-          <div className="flex h-10 items-center justify-between border-b border-code-border bg-code-bar px-4 font-mono text-[12.5px] text-code-text">
+        <div className="mt-16 overflow-hidden rounded-xl bg-code-bg">
+          <div className="flex h-10 items-center justify-between bg-code-bg px-4 font-mono text-[12.5px] text-code-text">
             <span>lru_cache.c <span className="text-code-dim">› evict_tail()</span></span>
             <span className="font-sans text-code-dim">502 lines · read-only</span>
           </div>
@@ -56,15 +56,15 @@ export default function LandingPage() {
                 <pre className="m-0 whitespace-pre font-mono text-code text-code-text">{text ? kw(text) : ' '}</pre>
               </div>
             ))}
-            <div className="mb-3 ml-4 mr-4 mt-2.5 max-w-[640px] rounded-[10px] border border-bug bg-white px-4 py-3.5 text-ink md:ml-[72px]">
+            <div className="mb-3 ml-4 mr-4 mt-2.5 max-w-[640px] rounded-[10px] bg-surface px-4 py-3.5 text-ink ring-1 ring-bug/50 md:ml-[72px]">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <span className="font-semibold">Your comment</span>
                 <span className="rounded bg-bug-soft px-2 py-0.5 font-mono text-xs font-medium">lines 198–202 · evict_tail</span>
               </div>
               <div className="mb-2 flex flex-wrap gap-1.5 text-xs">
                 <span className="rounded-md bg-danger px-3 py-[5px] font-semibold text-white">Bug</span>
-                <span className="rounded-md bg-ink px-[9px] py-[5px] font-semibold text-white">Critical</span>
-                <span className="rounded-md bg-ink px-[9px] py-[5px] font-semibold text-white">Certain</span>
+                <span className="rounded-md bg-ink px-[9px] py-[5px] font-semibold text-surface">Critical</span>
+                <span className="rounded-md bg-ink px-[9px] py-[5px] font-semibold text-surface">Certain</span>
               </div>
               <p className="leading-[1.45]">
                 entry_free(victim) runs first, then the callback reads victim-&gt;key and victim-&gt;value, which were just freed.
@@ -76,9 +76,9 @@ export default function LandingPage() {
 
         <div className="mt-16 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((s, i) => (
-            <div key={s.title} className="rounded-[10px] border border-line bg-white p-4">
+            <div key={s.title} className="rounded-[10px] bg-surface p-4">
               <div className="flex items-center gap-2.5">
-                <span className="h-[22px] w-[22px] flex-none rounded-full bg-accent text-center text-xs font-semibold leading-[22px] text-white">{i + 1}</span>
+                <span className="h-[22px] w-[22px] flex-none rounded-full bg-accent text-center text-xs font-semibold leading-[22px] text-accent-on">{i + 1}</span>
                 <span className="font-semibold">{s.title}</span>
               </div>
               <p className="mt-2 text-[12.5px] leading-[1.5] text-muted">{s.body}</p>
@@ -87,7 +87,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      <footer className="border-t border-line bg-white py-8 text-center text-xs text-muted">© 2026 ReadCode</footer>
+      <footer className="py-8 text-center text-xs text-muted">© 2026 ReadCode</footer>
     </div>
   )
 }
