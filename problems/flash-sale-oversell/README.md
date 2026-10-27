@@ -66,16 +66,27 @@ Answer all three. Each has one correct answer.
 
 **Q2. Why.** What is the cause?
 
-- A. The "seats left" cache is up to 5 seconds old, so workers keep selling seats that are already gone.
-- B. The job queue can hand the same purchase to two workers, so some purchases are processed twice.
-- C. The lock only stops two threads in the same process from interleaving. Production runs several worker processes on two hosts, so workers can each read the same seat count before any of them inserts its hold.
-- D. A payment timeout is retried, and each retry creates a second order for the same purchase.
+- A. The seat cache can be up to 5 s old, so workers read a stale count and confirm seats that were already taken.
+- B. `claim()` picks the oldest job and then marks it, so two workers can pick the same job and sell its seats twice.
+- C. `_hold_lock` only exists inside one process, so workers on other processes read the same count before any inserts.
+- D. When the card provider times out, the retry calls `hold()` again, so one purchase ends up holding its seats twice.
 
 **Q3. Fix.** Which change fixes it?
 
-- A. Replace `threading.Lock()` with `multiprocessing.Lock()`, so the lock is shared between worker processes.
-- B. Set `processes = 1` in `deploy/worker.toml`.
-- C. Set the cache TTL to 0, so workers never act on a stale seat count.
-- D. Make the check and the insert one database transaction that takes the lock in the database before reading the count (`BEGIN IMMEDIATE` in SQLite; `SELECT ... FOR UPDATE` on the event row in Postgres), and call the pricing service before it starts.
+- A. Replace `threading.Lock()` with `multiprocessing.Lock()`, so every worker process waits on the same lock.
+- B. Set `processes = 1` in `deploy/worker.toml`, so each host runs one worker and holds can't interleave.
+- C. Set the cache TTL to 0, so every worker reads a fresh seat count before it decides to hold seats.
+- D. Read the count and insert the hold in one transaction that locks first (`BEGIN IMMEDIATE`, or `FOR UPDATE`).
 
-Write your answers as, for example, `Q1 tickets/foo.py 10-20, Q2 A, Q3 B`, along with how long it took you. Afterwards, bring the TL;DR from our plan: what you solved, whether it was relevant for a backend job seeker, whether it felt authentic and why, and what could be improved.
+Write your answers as, for example, `Q1 tickets/foo.py 10-20, Q2 A, Q3 B`.
+
+## Afterwards: what we want to learn from you
+
+This problem is testing an assumption, not just you: **that practising on realistic, multi-file problems without AI matches what real code-reading interviews test, closely enough to help you prepare.** Please answer these honestly, including "no":
+
+1. **Comparison:** how close was this to your Apple code-reading round, on a 1-5 scale? What was different (amount of code, time pressure, how you answered)?
+2. **Prep value:** would practising 10 problems like this before that round have helped? Why or why not?
+3. **Guessing:** for each question, did you *know* the answer, or did you narrow it down from the options?
+4. **Time:** how long did reading take, how long did running `simulate.py` take, and did you run it at all?
+
+Then the TL;DR from our plan: what you solved, whether it was relevant for a backend job seeker, whether it felt authentic and why, and what could be improved.
