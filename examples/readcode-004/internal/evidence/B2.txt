@@ -1,0 +1,12 @@
+Gate B for B2 (ticket B): failing tests must fail on the shipped code, regression tests must pass
+
+FAIL  T5  tests/test_refunds.py::test_second_refund_cannot_exceed_what_is_left  (visible, failing)
+      Failed: DID NOT RAISE <class 'tally.models.RefundNotAllowed'>
+FAIL  T6  tests/test_refunds.py::test_refunds_can_add_up_to_exactly_the_charge  (visible, failing)
+      AssertionError: assert 201 == 409
+       +  where 201 = Response(status=201, body={'id': 're_0005', 'amount_cents': 1, 'status': 'succeeded', 'reason': ''}, headers={}).status
+PASS  T7  tests/test_refunds.py::test_full_refund_in_one_go  (visible, regression)
+FAIL  T8  tests/test_hidden.py::test_declined_refund_does_not_use_up_the_charge  (hidden, failing)
+      Failed: DID NOT RAISE <class 'tally.models.RefundNotAllowed'>
+
+detected: True

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "A-in-charge",
+    "ticket": "A",
+    "kind": "correct",
+    "description": "The usual fix: look the key up at the top of payments.charge() (no lock).",
+    "edits": [
+      {
+        "file": "tally/payments.py",
+        "old": "    return _create(svc, customer_id, amount_cents, idempotency_key, description)\n",
+        "new": "    existing = svc.repo.charge_by_key(idempotency_key)\n    if existing is not None:\n        return existing\n    return _create(svc, customer_id, amount_cents, idempotency_key, description)\n"
+      }
+    ]
+  },
+  {
+    "id": "A-in-every-caller",
+    "ticket": "A",
+    "kind": "correct",
+    "description": "Clumsier but correct: the same lookup copied into the webhook and the renewal job.",
+    "edits": [
+      {
+        "file": "tally/webhooks.py",
+        "old": "    data = event[\"data\"]\n",
+        "new": "    data = event[\"data\"]\n    existing = svc.repo.charge_by_key(event[\"id\"])\n    if existing is not None:\n        return {\"received\": event[\"id\"], \"action\": \"charged\", \"charge_id\": existing.id}\n"
+      },
+      {
+        "file": "tally/renewals.py",
+        "old": "        charge = payments.charge(\n",
+        "new": "        charge = svc.repo.charge_by_key(renewal_key(sub.id, period)) or payments.charge(\n"
+      }
+    ]
+  },
+  {
+    "id": "A-webhook-only",
+    "ticket": "A",
+    "kind": "wrong",
+    "description": "Copies the API's lookup into the webhook only; a restarted renewal run still charges twice.",
+    "edits": [
+      {
+        "file": "tally/webhooks.py",
+        "old": "    data = event[\"data\"]\n",
+        "new": "    data = event[\"data\"]\n    existing = svc.repo.charge_by_key(event[\"id\"])\n    if existing is not None:\n        return {\"received\": event[\"id\"], \"action\": \"charged\", \"charge_id\": existing.id}\n"
+      }
+    ]
+  },
+  {
+    "id": "B-from-succeeded-rows",
+    "ticket": "B",
+    "kind": "correct",
+    "description": "Computes what is left from the refunds that succeeded, and keeps refunded_cents in step.",
+    "edits": [
+      {
+        "file": "tally/refunds.py",
+        "old": "        remaining = charge.amount_cents - charge.refunded_cents\n",
+        "new": "        refunded = sum(r.amount_cents for r in svc.repo.refunds_for(charge_id) if r.status is RefundStatus.SUCCEEDED)\n        remaining = charge.amount_cents - refunded\n"
+      },
+      {
+        "file": "tally/refunds.py",
+        "old": "        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n",
+        "new": "        charge.refunded_cents = refunded + amount_cents\n        svc.repo.save_charge(charge)\n        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n"
+      }
+    ]
+  },
+  {
+    "id": "B-count-every-row",
+    "ticket": "B",
+    "kind": "wrong",
+    "description": "Sums every refund row, declined ones included.",
+    "edits": [
+      {
+        "file": "tally/refunds.py",
+        "old": "        remaining = charge.amount_cents - charge.refunded_cents\n",
+        "new": "        refunded = sum(r.amount_cents for r in svc.repo.refunds_for(charge_id))\n        remaining = charge.amount_cents - refunded\n"
+      },
+      {
+        "file": "tally/refunds.py",
+        "old": "        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n",
+        "new": "        charge.refunded_cents = refunded + amount_cents\n        svc.repo.save_charge(charge)\n        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n"
+      }
+    ]
+  },
+  {
+    "id": "B-reserve-before-processor",
+    "ticket": "B",
+    "kind": "wrong",
+    "description": "Adds to refunded_cents before calling the processor and never takes it back when the processor declines.",
+    "edits": [
+      {
+        "file": "tally/refunds.py",
+        "old": "        refund = Refund(\n",
+        "new": "        charge.refunded_cents += amount_cents\n        svc.repo.save_charge(charge)\n        refund = Refund(\n"
+      }
+    ]
+  }
+]

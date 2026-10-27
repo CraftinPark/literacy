@@ -1,0 +1,16 @@
+[
+  {
+    "id": "B1",
+    "ticket": "A",
+    "file": "tally/payments.py",
+    "old": "    if idempotency_key is None:\n        return _create(svc, customer_id, amount_cents, None, description)\n    with svc.repo.locked(f\"idempotency:{idempotency_key}\"):\n        existing = svc.repo.charge_by_key(idempotency_key)\n        if existing is not None:\n            return existing\n        return _create(svc, customer_id, amount_cents, idempotency_key, description)\n",
+    "new": "    return _create(svc, customer_id, amount_cents, idempotency_key, description)\n"
+  },
+  {
+    "id": "B2",
+    "ticket": "B",
+    "file": "tally/refunds.py",
+    "old": "        charge.refunded_cents += amount_cents\n        svc.repo.save_charge(charge)\n        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n",
+    "new": "        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n"
+  }
+]

@@ -1,0 +1,2 @@
+# Byte-exact: manifest.json pins these files by sha256, so git must not convert line endings.
+examples/readcode-004/** -text

@@ -62,11 +62,15 @@ tools/
   sync_public.py         # copies ONLY public.json + listed code/ files into frontend/public/exercises/ (temporary, until the API serves them)
   (future) run_gates.py, mutate.py, build_manifest.py
 tests/                   # validator tamper tests, sync leak tests
-examples/readcode-001/
+examples/readcode-001/   # review format (section 5)
+examples/readcode-004/   # fix_quiz format (section 16)
 backend/
   grader/                # section 9; plain Python, no web framework
-  tests/                 # grader tests + fixtures (strong/weak sample submissions)
+  fixquiz/               # section 16: run tests, grade, HTML report, build + gates for fix_quiz exercises
+  tests/                 # grader tests + fixtures (strong/weak sample submissions), test_fixquiz.py
 frontend/                # React/Vite/Tailwind; npm run dev (runs sync first), npm test (vitest), npm run build
+  scripts/               # sync.mjs, exam-api.mjs (dev-server bridge to fixquiz), python.mjs (finds .venv)
+workspace/reports/       # gitignored: HTML reports of completed fix_quiz attempts
 docs/ui-mockup/          # exported mockup (Main.dc.html carries the exact design values)
 (missing) prototypes/kernel-sort/, calibration/readcode-001/   # not in John's downloads yet
 ```
@@ -205,3 +209,64 @@ Original plan: deterministic layer matches bug locations (line overlap/function)
 - Keep or strip explanatory comments in scraped code (difficulty vs. hint)?
 - How many seeded bugs per exercise by difficulty tier? Are hints (e.g. showing demo output for -5 points) wanted?
 - Additional languages after C (each needs its own gate harness)?
+
+## 16. Fix-and-quiz format (`"format": "fix_quiz"`, added 2026-10-27)
+
+A second exercise format, designed as a FAANG-style backend interview question. Constraints it was built to:
+objective grading with **no LLM**, 5-10 navigable files, backend, about 30 minutes, the code read and edited
+in an **IDE embedded in the page** (John, 2026-10-27: not the candidate's own IDE).
+
+- **Section 1, Fix (20 min):** 2 tickets describe symptoms, not locations. The candidate fixes them in the
+  page's editor: CodeMirror 6 (`frontend/src/exercise/CodeEditor.tsx`) with a file tree and tabs. Tests and
+  pytest config are read-only there. **Run tests** sends the edited files to the server, which builds `code/`
+  plus the edits in a temp folder and runs the visible tests. Edits live in localStorage, so a refresh keeps
+  them. There are 8 graded tests: 6 visible (in `code/tests/`) and 2 hidden (`internal/hidden_tests/`).
+  Grading always uses the example's own copies of the tests and pytest config. The server accepts only
+  files listed in `public.files` that aren't tests or config.
+  - **Test roles:**
+    - `failing`: fails on the shipped code.
+    - `regression`: already passes on the shipped code; it scores only once a failing test of the same ticket
+      passes, so untouched code scores 0.
+  - **What the hidden tests are for:** each one catches a plausible fix that satisfies the visible tests. In 004:
+    - Ticket A, a third entry point (the renewal job).
+    - Ticket B, declined refunds must not count.
+- **Next** freezes the edits in the browser state (`submitted`). The editor becomes read-only, but the code
+  stays readable during the quiz.
+- **Section 2, Quiz (10 min):** 5 multiple-choice questions, one answer each. Every option has an explanation in
+  `key.json`, and each wrong option matches a specific misconception. Options are shuffled per attempt.
+- **Complete** runs all tests on the frozen files, scores the quiz, writes `workspace/reports/<id>-<time>.html` and
+  downloads it. The report includes the answer key.
+- **Scoring:** fix 70 + quiz 30 = 100. Points per test are in `key.json`.
+
+**Files:**
+- `schemas/fixquiz-public.schema.json` and `schemas/fixquiz-key.schema.json`.
+- `manifest.schema.json` gained optional `fix_checks`.
+
+The validator and `sync_public.py` pick the schemas by `format` (missing = `review`).
+
+**Verification (bug truth by execution, same rules as section 7).** `python -m fixquiz build examples/<id>`:
+1. Regenerates `code/` from `internal/baseline/` plus `internal/verification/mutations.json`.
+2. **Gate A:** the baseline passes all 8 tests.
+3. **Gate B:** each ticket's failing tests fail on the shipped code, and its regression tests pass.
+4. **Fix checks** (`internal/verification/fixes.json`, applied to the shipped code):
+   - Each correct fix passes every test of its ticket.
+   - Each wrong fix passes the visible tests but fails a hidden one.
+5. Writes evidence to `internal/evidence/` and rewrites `public.files` and `manifest.json`.
+
+`backend/tests/test_fixquiz.py` checks that a rebuild reproduces the committed files byte for byte.
+`.gitattributes` keeps `examples/readcode-004/**` byte-exact (`-text`), because Windows autocrlf would break the hashes.
+
+**Running it:**
+1. `cd frontend && npm run dev`.
+2. Open Exercises, then readcode-004.
+
+The page reaches Python through `frontend/scripts/exam-api.mjs`: a Vite dev-server middleware that runs
+`python -m fixquiz api <run|complete>` and stands in for the FastAPI backend. It doesn't exist
+under `vite build`/`preview`. The server is stateless: every request carries the edited files.
+
+**Known limits:**
+- The hidden tests and the key sit on the same machine. This is honor-system for local practice; a real
+  interview needs the grader on a server.
+- A candidate can still monkeypatch from the code they are allowed to edit.
+- The candidate's code runs unsandboxed under the local Python: it is fine on your own machine, but a hosted
+  version needs a sandbox.

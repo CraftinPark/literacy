@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "sync": "../.venv/bin/python ../tools/sync_public.py",
+    "sync": "node scripts/sync.mjs",
     "predev": "npm run sync",
     "dev": "vite",
     "prebuild": "npm run sync",
@@ -13,6 +13,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-python": "^6.1.6",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.34.1",
+    "codemirror": "^6.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

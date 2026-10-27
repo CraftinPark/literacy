@@ -22,17 +22,22 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 SUMMARY_FIELDS = ("id", "version", "title", "language", "difficulty", "topics", "estimated_minutes")
+SCHEMA_FOR_FORMAT = {"review": "public.schema.json", "fix_quiz": "fixquiz-public.schema.json"}
 
 
 def sync(examples, out):
-    validator = Draft202012Validator(json.loads((ROOT / "schemas" / "public.schema.json").read_text()))
+    validators = {fmt: Draft202012Validator(json.loads((ROOT / "schemas" / name).read_text()))
+                  for fmt, name in SCHEMA_FOR_FORMAT.items()}
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
     index = []
     for ex in sorted(p for p in examples.iterdir() if (p / "public.json").is_file()):
-        pub = json.loads((ex / "public.json").read_text())
-        errs = [e.message for e in validator.iter_errors(pub)]
+        pub = json.loads((ex / "public.json").read_text(encoding="utf-8"))
+        fmt = pub.get("format", "review")
+        if fmt not in validators:
+            sys.exit(f"{ex.name}/public.json has an unknown format '{fmt}'")
+        errs = [e.message for e in validators[fmt].iter_errors(pub)]
         if errs:
             sys.exit(f"{ex.name}/public.json fails its schema: {errs[0]}")
         dst = out / pub["id"]
@@ -45,7 +50,8 @@ def sync(examples, out):
             target = dst / "code" / f["path"]
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, target)
-        index.append({k: pub[k] for k in SUMMARY_FIELDS} | {"line_count": sum(f["line_count"] for f in pub["files"])})
+        index.append({k: pub[k] for k in SUMMARY_FIELDS}
+                     | {"format": fmt, "line_count": sum(f["line_count"] for f in pub["files"])})
     (out / "index.json").write_text(json.dumps(index, indent=2))
     return index
 

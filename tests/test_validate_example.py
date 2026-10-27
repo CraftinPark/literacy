@@ -111,3 +111,74 @@ def test_missing_shipped_list_is_rejected(ex, validators):
     del man["shipped"]
     save(ex, "manifest", man)
     assert "'shipped' is a required property" in errors(ex, validators)
+
+
+# ---- fix_quiz format (examples/readcode-004)
+
+@pytest.fixture
+def fq(tmp_path):
+    dst = tmp_path / "readcode-004"
+    shutil.copytree(ROOT / "examples" / "readcode-004", dst, ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+    return dst
+
+
+def test_fix_quiz_example_passes(fq, validators):
+    rep = ve.validate(str(fq), validators)
+    assert rep.errors == [] and rep.warnings == []
+
+
+def test_fix_quiz_edited_baseline_is_rejected(fq, validators):
+    p = fq / "internal" / "baseline" / "tally" / "ledger.py"
+    p.write_text(p.read_text() + "\n")
+    assert "sha256 does not match the baseline folder" in errors(fq, validators)
+
+
+def test_fix_quiz_answer_must_be_an_option(fq, validators):
+    key = load(fq, "key")
+    key["quiz"][0]["answer"] = "e"
+    save(fq, "key", key)
+    assert "is not one of the options" in errors(fq, validators)
+
+
+def test_fix_quiz_points_must_add_up(fq, validators):
+    key = load(fq, "key")
+    key["tests"][0]["points"] += 1
+    save(fq, "key", key)
+    assert "fix: item points sum to" in errors(fq, validators)
+
+
+def test_fix_quiz_visible_tests_must_match_the_key(fq, validators):
+    pub = load(fq, "public")
+    pub["fix"]["visible_tests"].pop()
+    save(fq, "public", pub)
+    assert "visible_tests" in errors(fq, validators)
+
+
+def test_fix_quiz_hidden_test_must_exist(fq, validators):
+    (fq / "internal" / "hidden_tests" / "test_hidden.py").unlink()
+    assert "internal/hidden_tests/test_hidden.py does not exist" in errors(fq, validators).replace("\\", "/")
+
+
+def test_fix_quiz_naming_a_hidden_test_is_a_leak(fq, validators):
+    pub, key = load(fq, "public"), load(fq, "key")
+    hidden = next(t for t in key["tests"] if t["visibility"] == "hidden")
+    pub["fix"]["intro"] += " See " + hidden["nodeid"].split("::")[1]
+    save(fq, "public", pub)
+    assert "names the hidden test" in errors(fq, validators)
+
+
+def test_fix_quiz_leaked_explanation_is_rejected(fq, validators):
+    pub, key = load(fq, "public"), load(fq, "key")
+    pub["quiz"]["questions"][0]["text"] += " " + key["quiz"][0]["explanations"]["b"]
+    save(fq, "public", pub)
+    assert "answer-key text verbatim" in errors(fq, validators)
+
+
+def test_fix_quiz_approval_needs_every_fix_check_to_pass(fq, validators):
+    man = load(fq, "manifest")
+    man["review"] = {"status": "approved", "reviewer": "x", "reviewed_at": "2026-01-01T00:00:00Z"}
+    man["rubric"] = {"version": 1, "citations_valid": True}
+    man["pilot_solve"] = {"model": "m", "score": 90, "found_bug_ids": [], "unlisted_findings": []}
+    man["fix_checks"][0]["passed"] = False
+    save(fq, "manifest", man)
+    assert "fix checks did not behave as expected" in errors(fq, validators)

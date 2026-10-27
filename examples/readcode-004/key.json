@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "format": "fix_quiz",
+  "id": "readcode-004",
+  "version": 1,
+  "scoring": {
+    "total": 100,
+    "sections": {"fix": 70, "quiz": 30},
+    "rule": "A regression test (one that already passes on the shipped code) earns its points only if at least one failing test of the same ticket now passes, so leaving the code alone scores 0."
+  },
+  "hidden_tests_dir": "internal/hidden_tests",
+  "tickets": [
+    {
+      "id": "A",
+      "bug_id": "B1",
+      "root_cause": "payments.charge() never looks at the idempotency key. Only api.create_charge checks it, so the checkout webhook and the renewal job can take money twice for the same key.",
+      "fix": "In payments.charge(), return the charge already recorded under the key instead of creating a new one, ideally holding repo.locked(\"idempotency:\" + key) around the lookup and the create.",
+      "wrong_fixes": [
+        "Copying the API's lookup into webhooks.py only: a restarted renewal run still charges every subscription again (hidden test T4).",
+        "Deduplicating on customer and amount: it merges genuine repeat purchases (visible test T3)."
+      ]
+    },
+    {
+      "id": "B",
+      "bug_id": "B2",
+      "root_cause": "refund() checks the amount against charge.amount_cents - charge.refunded_cents, but nothing ever increases refunded_cents, so every refund is checked against the full charge.",
+      "fix": "After the processor accepts the refund, add the amount to charge.refunded_cents and save the charge with repo.save_charge() (the repo hands out copies).",
+      "wrong_fixes": [
+        "Counting declined refunds, by summing every refund row or by adding to refunded_cents before the processor answers: a declined refund then uses up part of the charge (hidden test T8).",
+        "Updating refunded_cents without repo.save_charge(): the change is lost because get_charge() returns a copy (visible tests T5 and T6 still fail)."
+      ]
+    }
+  ],
+  "tests": [
+    {"id": "T1", "nodeid": "tests/test_charges.py::test_redelivered_checkout_event_charges_once", "ticket": "A", "visibility": "visible", "role": "failing", "points": 10,
+     "checks": "A redelivered checkout.completed event captures money once."},
+    {"id": "T2", "nodeid": "tests/test_charges.py::test_repeated_request_returns_the_original_charge", "ticket": "A", "visibility": "visible", "role": "failing", "points": 10,
+     "checks": "Repeating a request returns the original charge: 200 from the API, the same charge id from the webhook."},
+    {"id": "T3", "nodeid": "tests/test_charges.py::test_distinct_requests_create_distinct_charges", "ticket": "A", "visibility": "visible", "role": "regression", "points": 5,
+     "checks": "Requests with different keys, or with no key, are still separate charges."},
+    {"id": "T4", "nodeid": "tests/test_hidden.py::test_restarted_renewal_run_charges_each_subscription_once", "ticket": "A", "visibility": "hidden", "role": "failing", "points": 10,
+     "checks": "A restarted renewal run charges each subscription once per month: the third entry point, which only a fix inside charge() (or in every caller) covers."},
+    {"id": "T5", "nodeid": "tests/test_refunds.py::test_second_refund_cannot_exceed_what_is_left", "ticket": "B", "visibility": "visible", "role": "failing", "points": 10,
+     "checks": "A refund larger than what is left on the charge is rejected."},
+    {"id": "T6", "nodeid": "tests/test_refunds.py::test_refunds_can_add_up_to_exactly_the_charge", "ticket": "B", "visibility": "visible", "role": "failing", "points": 10,
+     "checks": "Refunds may add up to exactly the charge, one more cent is refused with 409, and the charge shows the refunded total."},
+    {"id": "T7", "nodeid": "tests/test_refunds.py::test_full_refund_in_one_go", "ticket": "B", "visibility": "visible", "role": "regression", "points": 5,
+     "checks": "A single full refund still works and the ledger balances."},
+    {"id": "T8", "nodeid": "tests/test_hidden.py::test_declined_refund_does_not_use_up_the_charge", "ticket": "B", "visibility": "hidden", "role": "failing", "points": 10,
+     "checks": "A declined refund returns no money, so it doesn't count against the charge."}
+  ],
+  "quiz": [
+    {
+      "question_id": "Q1",
+      "answer": "b",
+      "points": 6,
+      "explanations": {
+        "a": "Covers the webhook only. A restarted renewal run still charges every subscription again.",
+        "b": "Every way of taking money goes through charge(), so one check there covers all three callers, and any caller added later.",
+        "c": "By the time add_charge() runs, processor.capture() has already taken the money. Skipping the row hides the second capture instead of preventing it.",
+        "d": "The processor is an outside service, and that rule would refuse a customer's genuine second purchase of the same amount."
+      }
+    },
+    {
+      "question_id": "Q2",
+      "answer": "b",
+      "points": 6,
+      "explanations": {
+        "a": "Each call is safe on its own, but the lookup and the insert are two calls. Both threads can look before either has inserted.",
+        "b": "The lookup and the create must happen as one step. refunds.refund() uses the same pattern with a lock per charge.",
+        "c": "A second check narrows the window but doesn't close it: both threads can pass it before either inserts.",
+        "d": "Every charge gets a fresh id from new_id(), so the second insert succeeds and the customer is charged twice."
+      }
+    },
+    {
+      "question_id": "Q3",
+      "answer": "a",
+      "points": 6,
+      "explanations": {
+        "a": "The repo behaves like a database: what it returns are copies (see the repo.py docstring), so the change has to be saved.",
+        "b": "Nothing recomputes it. It is stored on the charge and changes only when the charge is saved.",
+        "c": "Locks only decide who runs at the same time. They don't undo anything.",
+        "d": "Charge is a plain, mutable dataclass. The assignment works, but on a copy."
+      }
+    },
+    {
+      "question_id": "Q4",
+      "answer": "a",
+      "points": 6,
+      "explanations": {
+        "a": "Read, check and update must happen as one step, or two concurrent refunds can each see the whole amount as still available.",
+        "b": "get_charge() doesn't know about locks.",
+        "c": "The lock is per charge, and charge() never takes it.",
+        "d": "Ledger.transfer() always writes both entries itself; the lock isn't what keeps the ledger balanced."
+      }
+    },
+    {
+      "question_id": "Q5",
+      "answer": "a",
+      "points": 6,
+      "explanations": {
+        "a": "Only the $40.00 refund returned money, so $60.00 was left, and after this refund nothing is.",
+        "b": "The declined $50.00 returned no money, so it must not count.",
+        "c": "$100 - $40 - $60 = $0.",
+        "d": "There is no such rule in refunds.py."
+      }
+    }
+  ]
+}

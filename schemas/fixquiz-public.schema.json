@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://readcode.example/schemas/fixquiz-public.schema.json",
+  "title": "ReadCode fix-and-quiz exercise, public part (safe to send to candidates)",
+  "description": "Section 1: fix tickets in an IDE, graded by visible and hidden tests. Section 2: multiple-choice questions. Shared fields match public.schema.json.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "format", "id", "version", "title", "language", "difficulty", "topics", "estimated_minutes", "files", "license", "fix", "quiz"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "format": {"const": "fix_quiz"},
+    "id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "title": {"type": "string", "minLength": 3, "maxLength": 120},
+    "language": {"enum": ["c", "cpp", "python", "go", "rust", "java", "javascript", "typescript"]},
+    "difficulty": {"enum": ["easy", "medium", "hard"]},
+    "topics": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9-]+$"}},
+    "estimated_minutes": {"type": "integer", "minimum": 5, "maximum": 180, "description": "Must equal fix.minutes + quiz.minutes."},
+    "files": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["path", "line_count"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^[A-Za-z0-9_./-]+$"},
+          "line_count": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "license": {
+      "type": "object", "additionalProperties": false,
+      "required": ["spdx", "attribution"],
+      "properties": {
+        "spdx": {"type": "string", "minLength": 1},
+        "attribution": {"type": "string", "minLength": 1},
+        "source_url": {"type": "string", "format": "uri"}
+      }
+    },
+    "fix": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minutes", "intro", "tickets", "visible_tests", "hidden_test_count"],
+      "properties": {
+        "minutes": {"type": "integer", "minimum": 1, "maximum": 120},
+        "intro": {"type": "string", "minLength": 10},
+        "tickets": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "title", "text"],
+            "properties": {
+              "id": {"$ref": "#/$defs/ticket_id"},
+              "title": {"type": "string", "minLength": 3},
+              "text": {"type": "string", "minLength": 10}
+            }
+          }
+        },
+        "visible_tests": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["nodeid", "ticket"],
+            "properties": {"nodeid": {"$ref": "#/$defs/nodeid"}, "ticket": {"$ref": "#/$defs/ticket_id"}}
+          }
+        },
+        "hidden_test_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "quiz": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minutes", "intro", "questions"],
+      "properties": {
+        "minutes": {"type": "integer", "minimum": 1, "maximum": 120},
+        "intro": {"type": "string", "minLength": 10},
+        "questions": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "text", "options"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^Q[0-9]+$"},
+              "text": {"type": "string", "minLength": 10},
+              "options": {
+                "type": "array", "minItems": 2, "maxItems": 6,
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["id", "text"],
+                  "properties": {"id": {"$ref": "#/$defs/option_id"}, "text": {"type": "string", "minLength": 1}}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ticket_id": {"type": "string", "pattern": "^[A-Z]$"},
+    "option_id": {"type": "string", "pattern": "^[a-z]$"},
+    "nodeid": {"type": "string", "pattern": "^tests/[A-Za-z0-9_/]+\\.py::[A-Za-z0-9_]+$", "description": "pytest node id, relative to code/"}
+  }
+}

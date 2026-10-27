@@ -27,7 +27,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["sha256", "changes_summary", "gate_a"],
       "properties": {
-        "path": {"type": "string", "description": "Relative to the example root, e.g. internal/baseline/lru_cache.c"},
+        "path": {"type": "string", "description": "Relative to the example root: a file (internal/baseline/lru_cache.c) or a folder (internal/baseline). A folder's sha256 is over the sorted `<file sha256>  <path>` lines of its files."},
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "changes_summary": {"type": "string"},
         "gate_a": {
@@ -77,6 +77,21 @@
               "evidence_file": {"type": "string"}
             }
           }
+        }
+      }
+    },
+    "fix_checks": {
+      "type": "array",
+      "description": "fix_quiz exercises: candidate fixes applied to the shipped code. A correct fix must pass every test of its ticket; a wrong one must pass the visible tests and fail a hidden one.",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "ticket", "kind", "passed", "evidence_file"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Za-z0-9-]+$"},
+          "ticket": {"type": "string", "pattern": "^[A-Z]$"},
+          "kind": {"enum": ["correct", "wrong"]},
+          "passed": {"type": "boolean", "description": "The check behaved as its kind requires."},
+          "evidence_file": {"type": "string"}
         }
       }
     },

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://readcode.example/schemas/fixquiz-key.schema.json",
+  "title": "ReadCode fix-and-quiz answer key (grader only, never sent to candidates)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "format", "id", "version", "scoring", "hidden_tests_dir", "tickets", "tests", "quiz"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "format": {"const": "fix_quiz"},
+    "id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
+    "version": {"type": "integer", "minimum": 1},
+    "scoring": {
+      "type": "object", "additionalProperties": false,
+      "required": ["total", "sections"],
+      "properties": {
+        "total": {"type": "number", "exclusiveMinimum": 0},
+        "sections": {
+          "type": "object", "additionalProperties": false,
+          "required": ["fix", "quiz"],
+          "properties": {"fix": {"type": "number", "minimum": 0}, "quiz": {"type": "number", "minimum": 0}}
+        },
+        "rule": {"type": "string", "description": "Plain-language scoring rule, printed in the report."}
+      }
+    },
+    "hidden_tests_dir": {"type": "string", "description": "Relative to the example root. Its files are copied into tests/ when grading."},
+    "tickets": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "bug_id", "root_cause", "fix"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[A-Z]$"},
+          "bug_id": {"type": "string", "pattern": "^B[0-9]+$", "description": "The manifest bug this ticket is about."},
+          "root_cause": {"type": "string", "minLength": 10},
+          "fix": {"type": "string", "minLength": 10},
+          "wrong_fixes": {"type": "array", "items": {"type": "string", "minLength": 10}}
+        }
+      }
+    },
+    "tests": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "nodeid", "ticket", "visibility", "role", "points", "checks"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^T[0-9]+$"},
+          "nodeid": {"type": "string", "pattern": "^tests/[A-Za-z0-9_/]+\\.py::[A-Za-z0-9_]+$"},
+          "ticket": {"type": "string", "pattern": "^[A-Z]$"},
+          "visibility": {"enum": ["visible", "hidden"]},
+          "role": {"enum": ["failing", "regression"], "description": "failing: fails on the shipped code until the bug is fixed. regression: passes on the shipped code and must keep passing."},
+          "points": {"type": "number", "exclusiveMinimum": 0},
+          "checks": {"type": "string", "minLength": 10}
+        }
+      }
+    },
+    "quiz": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["question_id", "answer", "points", "explanations"],
+        "properties": {
+          "question_id": {"type": "string", "pattern": "^Q[0-9]+$"},
+          "answer": {"type": "string", "pattern": "^[a-z]$"},
+          "points": {"type": "number", "exclusiveMinimum": 0},
+          "explanations": {
+            "type": "object",
+            "propertyNames": {"pattern": "^[a-z]$"},
+            "additionalProperties": {"type": "string", "minLength": 5},
+            "description": "Why each option is right or wrong. Shown in the report."
+          }
+        }
+      }
+    }
+  }
+}

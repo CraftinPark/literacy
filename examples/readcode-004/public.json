@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "format": "fix_quiz",
+  "id": "readcode-004",
+  "version": 1,
+  "title": "Tally: payments service",
+  "language": "python",
+  "difficulty": "medium",
+  "topics": [
+    "backend",
+    "payments",
+    "idempotency",
+    "refunds",
+    "concurrency"
+  ],
+  "estimated_minutes": 30,
+  "files": [
+    {
+      "path": "README.md",
+      "line_count": 39
+    },
+    {
+      "path": "pytest.ini",
+      "line_count": 3
+    },
+    {
+      "path": "tally/__init__.py",
+      "line_count": 17
+    },
+    {
+      "path": "tally/api.py",
+      "line_count": 86
+    },
+    {
+      "path": "tally/ledger.py",
+      "line_count": 41
+    },
+    {
+      "path": "tally/models.py",
+      "line_count": 65
+    },
+    {
+      "path": "tally/payments.py",
+      "line_count": 34
+    },
+    {
+      "path": "tally/processor.py",
+      "line_count": 34
+    },
+    {
+      "path": "tally/refunds.py",
+      "line_count": 37
+    },
+    {
+      "path": "tally/renewals.py",
+      "line_count": 26
+    },
+    {
+      "path": "tally/repo.py",
+      "line_count": 86
+    },
+    {
+      "path": "tally/webhooks.py",
+      "line_count": 37
+    },
+    {
+      "path": "tests/conftest.py",
+      "line_count": 9
+    },
+    {
+      "path": "tests/test_charges.py",
+      "line_count": 46
+    },
+    {
+      "path": "tests/test_refunds.py",
+      "line_count": 37
+    }
+  ],
+  "license": {
+    "spdx": "LicenseRef-ReadCode-Original",
+    "attribution": "Original ReadCode exercise"
+  },
+  "fix": {
+    "minutes": 20,
+    "intro": "Two tickets describe bugs in Tally, a small payments service. Fix both in the editor. The provided tests show the symptoms. When you finish, the provided tests and 2 hidden ones decide your score, so fix the cause, not only the case a test checks.",
+    "tickets": [
+      {
+        "id": "A",
+        "title": "A customer was charged twice for one order",
+        "text": "Support ticket #4471: customer `cus_ada` was charged $49.99 twice for order 1042. The checkout provider's log shows it delivered the `checkout.completed` event for that order twice, with the same event id, because our first answer was slow.\n\nWhat we need: a request whose idempotency key was already used must never create a second charge, however it reaches the service. Repeating a request returns the original charge."
+      },
+      {
+        "id": "B",
+        "title": "Refunds added up to more than the charge",
+        "text": "Finance ticket #812: a $100.00 charge was refunded $70.00 and then another $40.00, so the customer got $110.00 back. The charge still shows $0.00 refunded.\n\nThe rule: the refunds that went through on a charge may never add up to more than the charge. A refund that would go over is rejected (the API answers 409), and the charge shows how much has been refunded."
+      }
+    ],
+    "visible_tests": [
+      {
+        "nodeid": "tests/test_charges.py::test_redelivered_checkout_event_charges_once",
+        "ticket": "A"
+      },
+      {
+        "nodeid": "tests/test_charges.py::test_repeated_request_returns_the_original_charge",
+        "ticket": "A"
+      },
+      {
+        "nodeid": "tests/test_charges.py::test_distinct_requests_create_distinct_charges",
+        "ticket": "A"
+      },
+      {
+        "nodeid": "tests/test_refunds.py::test_second_refund_cannot_exceed_what_is_left",
+        "ticket": "B"
+      },
+      {
+        "nodeid": "tests/test_refunds.py::test_refunds_can_add_up_to_exactly_the_charge",
+        "ticket": "B"
+      },
+      {
+        "nodeid": "tests/test_refunds.py::test_full_refund_in_one_go",
+        "ticket": "B"
+      }
+    ],
+    "hidden_test_count": 2
+  },
+  "quiz": {
+    "minutes": 10,
+    "intro": "Five questions about the code and the two bugs, one answer each. Your Section 1 code is locked, but you can still read it in the editor.",
+    "questions": [
+      {
+        "id": "Q1",
+        "text": "`payments.charge()` is called by `api.create_charge`, `webhooks.handle_event` and `renewals.run_renewals`. Where does the idempotency-key check have to happen so that none of them can charge the same key twice?",
+        "options": [
+          {
+            "id": "a",
+            "text": "In the webhook handler, the same way `api.create_charge` already does it."
+          },
+          {
+            "id": "b",
+            "text": "Inside `payments.charge()`, before a new charge is created."
+          },
+          {
+            "id": "c",
+            "text": "In `Repo.add_charge()`: skip storing a charge whose key is already stored."
+          },
+          {
+            "id": "d",
+            "text": "In the processor: refuse a second capture of the same amount for the same customer."
+          }
+        ]
+      },
+      {
+        "id": "Q2",
+        "text": "The provider sends an event again while the first delivery is still being processed, so two threads call `charge()` with the same key at the same moment. The check is `charge_by_key()`, then creating the charge if nothing was found. What can happen?",
+        "options": [
+          {
+            "id": "a",
+            "text": "Nothing: every `Repo` method is safe to call from several threads."
+          },
+          {
+            "id": "b",
+            "text": "Both threads find nothing and both capture the card. Holding `repo.locked(\"idempotency:\" + key)` around the lookup and the create prevents it."
+          },
+          {
+            "id": "c",
+            "text": "Both threads find nothing. Repeating the `charge_by_key()` check just before `add_charge()` prevents it."
+          },
+          {
+            "id": "d",
+            "text": "The second thread's `add_charge()` raises, because a charge with that id already exists."
+          }
+        ]
+      },
+      {
+        "id": "Q3",
+        "text": "Someone fixes ticket B by adding only `charge.refunded_cents += amount_cents` after a successful refund in `refunds.refund()`. The provided refund tests still fail. Why?",
+        "options": [
+          {
+            "id": "a",
+            "text": "`get_charge()` returns a copy, so the change is lost unless the charge is written back with `repo.save_charge()`."
+          },
+          {
+            "id": "b",
+            "text": "`refunded_cents` is recomputed from the refund rows every time a charge is read."
+          },
+          {
+            "id": "c",
+            "text": "The line runs inside `repo.locked()`, and changes made while holding a lock are discarded."
+          },
+          {
+            "id": "d",
+            "text": "`Charge` is a frozen dataclass, so the assignment raises."
+          }
+        ]
+      },
+      {
+        "id": "Q4",
+        "text": "Why does `refunds.refund()` hold `repo.locked(f\"charge:{charge_id}\")` from reading the charge until after saving it?",
+        "options": [
+          {
+            "id": "a",
+            "text": "So two refunds of the same charge at the same moment can't both pass the amount check against the same old `refunded_cents`."
+          },
+          {
+            "id": "b",
+            "text": "Because `get_charge()` raises unless the caller holds that lock."
+          },
+          {
+            "id": "c",
+            "text": "To stop new charges for the same customer while a refund is running."
+          },
+          {
+            "id": "d",
+            "text": "So the ledger writes the refund's two entries together."
+          }
+        ]
+      },
+      {
+        "id": "Q5",
+        "text": "A $100.00 charge has had two refunds: $40.00, which succeeded, then $50.00, which the processor declined. With ticket B fixed correctly, what happens when a $60.00 refund is requested next?",
+        "options": [
+          {
+            "id": "a",
+            "text": "It succeeds, and $0.00 is left to refund."
+          },
+          {
+            "id": "b",
+            "text": "It is rejected, because $40 + $50 + $60 is more than $100."
+          },
+          {
+            "id": "c",
+            "text": "It succeeds, and $10.00 is left to refund."
+          },
+          {
+            "id": "d",
+            "text": "It is rejected, because a charge with a declined refund can't be refunded again."
+          }
+        ]
+      }
+    ]
+  }
+}

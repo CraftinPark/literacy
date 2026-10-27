@@ -1,0 +1,9 @@
+Fix check A-in-charge (correct): The usual fix: look the key up at the top of payments.charge() (no lock).
+Expected: a correct fix passes every test of its ticket
+
+PASS  T1  tests/test_charges.py::test_redelivered_checkout_event_charges_once  (visible, failing)
+PASS  T2  tests/test_charges.py::test_repeated_request_returns_the_original_charge  (visible, failing)
+PASS  T3  tests/test_charges.py::test_distinct_requests_create_distinct_charges  (visible, regression)
+PASS  T4  tests/test_hidden.py::test_restarted_renewal_run_charges_each_subscription_once  (hidden, failing)
+
+as expected: True

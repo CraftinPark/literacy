@@ -1,0 +1,9 @@
+Fix check B-from-succeeded-rows (correct): Computes what is left from the refunds that succeeded, and keeps refunded_cents in step.
+Expected: a correct fix passes every test of its ticket
+
+PASS  T5  tests/test_refunds.py::test_second_refund_cannot_exceed_what_is_left  (visible, failing)
+PASS  T6  tests/test_refunds.py::test_refunds_can_add_up_to_exactly_the_charge  (visible, failing)
+PASS  T7  tests/test_refunds.py::test_full_refund_in_one_go  (visible, regression)
+PASS  T8  tests/test_hidden.py::test_declined_refund_does_not_use_up_the_charge  (hidden, failing)
+
+as expected: True

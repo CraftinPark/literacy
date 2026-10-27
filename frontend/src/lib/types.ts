@@ -2,6 +2,8 @@
 
 export interface ExerciseSummary {
   id: string
+  /** 'review' (the default) or 'fix_quiz' (see lib/fixquiz.ts). */
+  format?: 'review' | 'fix_quiz'
   version: number
   title: string
   language: string

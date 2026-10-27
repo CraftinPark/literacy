@@ -1,0 +1,12 @@
+Fix check A-webhook-only (wrong): Copies the API's lookup into the webhook only; a restarted renewal run still charges twice.
+Expected: a wrong fix passes the visible tests of its ticket and fails a hidden one
+
+PASS  T1  tests/test_charges.py::test_redelivered_checkout_event_charges_once  (visible, failing)
+PASS  T2  tests/test_charges.py::test_repeated_request_returns_the_original_charge  (visible, failing)
+PASS  T3  tests/test_charges.py::test_distinct_requests_create_distinct_charges  (visible, regression)
+FAIL  T4  tests/test_hidden.py::test_restarted_renewal_run_charges_each_subscription_once  (hidden, failing)
+      AssertionError: assert ['ch_0003', 'ch_0004'] == ['ch_0001', 'ch_0002']
+
+        At index 0 diff: 'ch_0003' != 'ch_0001'
+
+as expected: True

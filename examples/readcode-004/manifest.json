@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "id": "readcode-004",
+  "source": {
+    "kind": "generated",
+    "license_spdx": "LicenseRef-ReadCode-Original",
+    "original_sha256": "278769b6d7ad0c78cddcfbda26855679cf7a2b255da5e4b37eaf66addf532662"
+  },
+  "baseline": {
+    "path": "internal/baseline",
+    "sha256": "278769b6d7ad0c78cddcfbda26855679cf7a2b255da5e4b37eaf66addf532662",
+    "changes_summary": "Hand-written clean service. code/ is generated from it by applying internal/verification/mutations.json (python -m fixquiz build).",
+    "gate_a": {
+      "passed": true,
+      "tests_run": 8,
+      "tools": [
+        "test-driver"
+      ],
+      "evidence_file": "internal/evidence/gate_a.txt"
+    }
+  },
+  "shipped": [
+    {
+      "path": "README.md",
+      "sha256": "c9458d076afdd7538a8a1575085322449af4215d234d1e5517c7942dbb0e3452"
+    },
+    {
+      "path": "pytest.ini",
+      "sha256": "6c6ccf864e8f2d2e0223ee8e39bfde660c12435aa37d81e2b14000a6bee15003"
+    },
+    {
+      "path": "tally/__init__.py",
+      "sha256": "bbe1650514126a14b478f520c893357b240e2bc1b71bbd66e02a489f81e79f79"
+    },
+    {
+      "path": "tally/api.py",
+      "sha256": "29afee54e38f9b4d560302af91911358f1d184eb10ff63f19ad032fe0aa00bf5"
+    },
+    {
+      "path": "tally/ledger.py",
+      "sha256": "313e3f2c127bf77d763ab049784cd184b316752c34a8fffc449cc35f65d39763"
+    },
+    {
+      "path": "tally/models.py",
+      "sha256": "5e214d06727fb4a8bc39917c5ace1805882877fe15ae947e3140f41e78134cc5"
+    },
+    {
+      "path": "tally/payments.py",
+      "sha256": "a86f8cf08e1056987dd20ba70838f0918d55a02d96bbb2de2c6e741bbeea8dc0"
+    },
+    {
+      "path": "tally/processor.py",
+      "sha256": "8ef59e2c360dc4ebe7bc777e2c887164db1443fad8fa252a668b0b4773882538"
+    },
+    {
+      "path": "tally/refunds.py",
+      "sha256": "2cfcf0bcb6536781ac5bde1aa30611512edb504d03b5e6d602b0883559f2a4c0"
+    },
+    {
+      "path": "tally/renewals.py",
+      "sha256": "92f734b93a40fac0c6a9e50d889286e1726a80f97164bcf0830e9425c8f1a02e"
+    },
+    {
+      "path": "tally/repo.py",
+      "sha256": "48994845059e6f096ba8d34234328cb3f02d3ce794b277c1604b3d3a1aca7b6f"
+    },
+    {
+      "path": "tally/webhooks.py",
+      "sha256": "78ded6f65ef805ae87cad28e4e998d8114a8c9c3486ea756f45d5da6604637e4"
+    },
+    {
+      "path": "tests/conftest.py",
+      "sha256": "f5a4111817f335fbca0554597d9bfb9701d372887bbf6bc2f97e9c2738b7b172"
+    },
+    {
+      "path": "tests/test_charges.py",
+      "sha256": "30777a8f3f6b7d5b0e2a8baedfe524352d4ee8c33f7e637cfd4e40f8a6710e8d"
+    },
+    {
+      "path": "tests/test_refunds.py",
+      "sha256": "5e169edf17cc2e2f0ac15c3fcd5ab2135c37fca2242df86bcfcefd2eb17aa7c1"
+    }
+  ],
+  "bugs": [
+    {
+      "id": "B1",
+      "file": "tally/payments.py",
+      "line": 15,
+      "change": {
+        "old": "    if idempotency_key is None:\n        return _create(svc, customer_id, amount_cents, None, description)\n    with svc.repo.locked(f\"idempotency:{idempotency_key}\"):\n        existing = svc.repo.charge_by_key(idempotency_key)\n        if existing is not None:\n            return existing\n        return _create(svc, customer_id, amount_cents, idempotency_key, description)\n",
+        "new": "    return _create(svc, customer_id, amount_cents, idempotency_key, description)\n"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B1.txt"
+      }
+    },
+    {
+      "id": "B2",
+      "file": "tally/refunds.py",
+      "line": 36,
+      "change": {
+        "old": "        charge.refunded_cents += amount_cents\n        svc.repo.save_charge(charge)\n        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n",
+        "new": "        svc.ledger.transfer(\"merchant\", f\"customer:{charge.customer_id}\", amount_cents, memo=f\"refund {refund.id}\")\n"
+      },
+      "gate_b": {
+        "detected": true,
+        "detected_by": "test-driver",
+        "evidence_file": "internal/evidence/B2.txt"
+      }
+    }
+  ],
+  "fix_checks": [
+    {
+      "id": "A-in-charge",
+      "ticket": "A",
+      "kind": "correct",
+      "passed": true,
+      "evidence_file": "internal/evidence/fix-A-in-charge.txt"
+    },
+    {
+      "id": "A-in-every-caller",
+      "ticket": "A",
+      "kind": "correct",
+      "passed": true,
+      "evidence_file": "internal/evidence/fix-A-in-every-caller.txt"
+    },
+    {
+      "id": "A-webhook-only",
+      "ticket": "A",
+      "kind": "wrong",
+      "passed": true,
+      "evidence_file": "internal/evidence/fix-A-webhook-only.txt"
+    },
+    {
+      "id": "B-from-succeeded-rows",
+      "ticket": "B",
+      "kind": "correct",
+      "passed": true,
+      "evidence_file": "internal/evidence/fix-B-from-succeeded-rows.txt"
+    },
+    {
+      "id": "B-count-every-row",
+      "ticket": "B",
+      "kind": "wrong",
+      "passed": true,
+      "evidence_file": "internal/evidence/fix-B-count-every-row.txt"
+    },
+    {
+      "id": "B-reserve-before-processor",
+      "ticket": "B",
+      "kind": "wrong",
+      "passed": true,
+      "evidence_file": "internal/evidence/fix-B-reserve-before-processor.txt"
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "notes": "Rebuilt by fixquiz build; needs review."
+  }
+}

@@ -3,7 +3,7 @@ import { Logo } from '../components/Logo'
 import type { PublicExercise } from '../lib/types'
 
 /** Soft countdown from the exercise's estimate. Turns red when over; never forces a submit. */
-function Timer({ startedAt, minutes }: { startedAt: number; minutes: number }) {
+export function Timer({ startedAt, minutes }: { startedAt: number; minutes: number }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)

@@ -1,0 +1,17 @@
+Gate B for B1 (ticket A): failing tests must fail on the shipped code, regression tests must pass
+
+FAIL  T1  tests/test_charges.py::test_redelivered_checkout_event_charges_once  (visible, failing)
+      AssertionError: assert 2 == 1
+       +  where 2 = len([('cap_1', 'cus_ada', 4999), ('cap_2', 'cus_ada', 4999)])
+       +    where [('cap_1', 'cus_ada', 4999), ('cap_2', 'cus_ada', 4999)] = <tally.processor.FakeProcessor object at 0x…>.captures
+FAIL  T2  tests/test_charges.py::test_repeated_request_returns_the_original_charge  (visible, failing)
+      AssertionError: assert 'ch_0003' == 'ch_0002'
+
+        - ch_0002
+PASS  T3  tests/test_charges.py::test_distinct_requests_create_distinct_charges  (visible, regression)
+FAIL  T4  tests/test_hidden.py::test_restarted_renewal_run_charges_each_subscription_once  (hidden, failing)
+      AssertionError: assert ['ch_0003', 'ch_0004'] == ['ch_0001', 'ch_0002']
+
+        At index 0 diff: 'ch_0003' != 'ch_0001'
+
+detected: True
