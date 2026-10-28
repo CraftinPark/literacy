@@ -1,0 +1,137 @@
+{
+  "schema_version": 2,
+  "id": "readcode-005",
+  "version": 1,
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "The loop never waits when the pool is full",
+      "pattern": "backpressure-wait-not-awaited",
+      "locations": [
+        {
+          "file": "pool.ts",
+          "function": "pooledMap",
+          "start_line": 85,
+          "end_line": 87
+        }
+      ],
+      "description": "When executing.length reaches poolLimit the loop calls Promise.race(executing) but does not await it, so it never pauses. The check exists, but nothing waits for a slot to free up before the next item is pulled from the input and started.",
+      "runtime_failure": "Every item starts as soon as it is read: with 10,000 items, about 10,000 calls to iteratorFn run at once, whatever poolLimit says. The input is drained eagerly (an endless or very large async iterable is read as fast as it produces), so the service being called is flooded and memory grows with the number of in-flight calls. If a call fails, the race promise rejects with nobody awaiting it (an unhandled rejection), and the catch block that stops new work is never reached.",
+      "conditions": "Only noticeable when the input has more items than poolLimit and the calls take time (network, I/O). The results themselves are still all there and in order, so tests that only check the output pass.",
+      "fix": "Await the race: await Promise.race(executing);"
+    }
+  ],
+  "rubric": [
+    {
+      "id": "R1",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "An async iterator of the results, in the same order as the input: each promise is written to the TransformStream in input order and the transform awaits them one at a time."
+    },
+    {
+      "id": "R2",
+      "question_id": "Q1",
+      "kind": "bonus",
+      "point": "If a call throws, the calls already running are allowed to finish, then the iterator throws an AggregateError with all the failures."
+    },
+    {
+      "id": "R3",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "One promise per call that is currently running; when the call's promise resolves, its then() removes the entry with splice(indexOf(e), 1)."
+    },
+    {
+      "id": "R4",
+      "question_id": "Q2",
+      "kind": "bonus",
+      "point": "If the call rejects, the entry is not removed and Promise.race(executing) rejects, which sends the loop to the catch block."
+    },
+    {
+      "id": "R5",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "Promise.race(executing) is not awaited, so the loop never pauses when the pool is full.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R6",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "So every item starts immediately: with a large input, thousands of calls run at once and poolLimit is ignored; there is no backpressure on the input.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R7",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "It only shows with more items than poolLimit and slow calls; the results are still complete and in order, so output-only tests pass.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R8",
+      "question_id": "Q3",
+      "kind": "bonus",
+      "point": "Fix: await Promise.race(executing).",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R9",
+      "question_id": "Q3",
+      "kind": "bonus",
+      "point": "Consequences: the called service is overloaded or rate-limits, memory grows, an endless input is read without limit, and a failed call becomes an unhandled rejection instead of stopping new work.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R10",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "race resumes as soon as any one call finishes, freeing exactly one slot; all would wait for every running call, leaving slots idle behind the slowest one."
+    },
+    {
+      "id": "R11",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "race also rejects as soon as one call fails, which stops new work promptly."
+    },
+    {
+      "id": "R12",
+      "question_id": "Q5",
+      "kind": "required",
+      "point": "So calls run in parallel while the output keeps the input order: the stream holds the promises in order and the reading side awaits them one by one."
+    },
+    {
+      "id": "R13",
+      "question_id": "Q5",
+      "kind": "bonus",
+      "point": "writer.write() is not awaited either, so if the caller reads slowly, finished results pile up in the stream: the pool limits running calls, not unread results."
+    },
+    {
+      "id": "R14",
+      "question_id": "Q6",
+      "kind": "required",
+      "point": "Use an iteratorFn that increments a counter when it starts and decrements it when it finishes (after a delay), record the maximum, and assert it never exceeds poolLimit, with more items than poolLimit."
+    },
+    {
+      "id": "R15",
+      "question_id": "Q6",
+      "kind": "bonus",
+      "point": "Control completion with deferred promises or fake timers so the test is deterministic; also check that an async input is pulled lazily."
+    },
+    {
+      "id": "R16",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "Today the loop keeps reading the input and starting calls even after the caller stops reading. Add a way to stop: an AbortSignal option, or stop when the returned iterator is closed (return() / break), and then stop pulling input and starting calls."
+    },
+    {
+      "id": "R17",
+      "question_id": "Q7",
+      "kind": "bonus",
+      "point": "Cancel the stream so the writer's writes fail, call the input iterator's return(), and decide whether running calls are cancelled or allowed to finish."
+    }
+  ],
+  "grader_notes": [
+    "A line comment on pool.ts line 86 that says the race is not awaited and explains the effect earns R5 to R7 even if Q3 is blank.",
+    "This is the easiest level: accept plain-language answers (\"it starts everything at once\") for R6."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "id": "readcode-005",
+  "sources": [
+    {
+      "repo": "https://github.com/denoland/std",
+      "commit": "f834d0223364361169314833e3c7a8f62ce11d58",
+      "path": "async/pool.ts",
+      "sha256": "7fa6e38282a60e659703ae2887920430c9d85d813d1a01b3626fb436f30e8132",
+      "license_spdx": "MIT",
+      "license_evidence": "LICENSE at the commit: 'MIT License / Copyright 2018-2022 the Deno authors'; the file header says 'Copyright 2018-2026 the Deno authors. MIT license.' Checked by Claude 2026-10-27; needs a human check.",
+      "code_path": "pool.ts"
+    }
+  ],
+  "tests": [
+    "backend.messaging.backpressure"
+  ],
+  "present": [
+    "backend.concurrency.thread-worker-pools",
+    "backend.resources.unbounded-buffers",
+    "backend.errors.error-propagation"
+  ],
+  "language": "typescript",
+  "level": "junior",
+  "origin": "real",
+  "bug_pattern": "backpressure-wait-not-awaited",
+  "license": "MIT",
+  "taxonomy_version": "backend-v0",
+  "baseline": {
+    "files": [
+      {
+        "path": "pool.ts",
+        "sha256": "7fa6e38282a60e659703ae2887920430c9d85d813d1a01b3626fb436f30e8132"
+      }
+    ],
+    "changes_summary": "None: pool.ts is the file from @std/async exactly as it is at the pinned commit. It needs no stubs (it uses only web-standard streams and promises).",
+    "compile_check": {
+      "passed": true,
+      "tool": "tsc 5.9.3",
+      "command": "tsc --noEmit -p internal/verification/tsconfig.json (files: pool.ts)",
+      "evidence_file": "internal/evidence/compile_baseline.txt"
+    }
+  },
+  "shipped": {
+    "files": [
+      {
+        "path": "pool.ts",
+        "sha256": "9bf06cea42f659ac9005d8d6eb0c2c319734ee6a78abb8cc2cb03e93d0788581"
+      }
+    ],
+    "compile_check": {
+      "passed": true,
+      "tool": "tsc 5.9.3",
+      "command": "tsc --noEmit -p internal/verification/tsconfig.json (files: pool.ts)",
+      "evidence_file": "internal/evidence/compile_shipped.txt"
+    }
+  },
+  "bugs": [
+    {
+      "id": "B1",
+      "file": "pool.ts",
+      "line": 86,
+      "change": {
+        "old": "          await Promise.race(executing);\n",
+        "new": "          Promise.race(executing);\n"
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "notes": "Built by Claude 2026-10-27 for backend.messaging.backpressure (next concept by weight in the Amazon posting, 0.5), at the easiest level on John's request. For the reviewer: (1) 117 lines, one file, origin 'real' (no trimming or stubs), so it is much shorter than the other examples; that is intended for the junior level. (2) A dropped await is easy to see once you look at that line; the difficulty is knowing that the wait is the backpressure. (3) With the bug, a mapping error can also surface as an unhandled promise rejection (the race promise is no longer awaited); the key gives bonus credit for it. (4) Licence checked by Claude from LICENSE and the file header; needs a human check."
+  }
+}

@@ -158,8 +158,9 @@ per-concept page of examples later.
 | readcode-002 | BullMQ worker (MIT) | queues-consumers, at-least-once-delivery | `untrackJob` before `callProcessJob` (lock never renewed) | 980 |
 | readcode-003 | cockatiel RetryPolicy (MIT) | retries-backoff | backoff restarted from the factory on every retry (no growth) | 816 |
 | readcode-004 | Powertools idempotency (MIT-0) | api.idempotency | idempotency key hashed without `deepSort` (depends on key order) | 1,362 |
+| readcode-005 | Deno std `pooledMap` (MIT), **junior**, unchanged file | messaging.backpressure | `Promise.race` not awaited when the pool is full (no backpressure) | 117 |
 
-All three: validator clean, both compile checks pass. **All waiting for John's review (step 9)**; open points are in
-each `manifest.review.notes` (all are over the 500-650 line target). readcode-004's real code contains an upstream bug
+All four: validator clean, both compile checks pass. **All waiting for John's review (step 9)**; open points are in
+each `manifest.review.notes` (002-004 are over the 500-650 line target; 005 is deliberately small for the junior level). readcode-004's real code contains an upstream bug
 (`getUTCMilliseconds()` used as "now" in `IdempotencyHandler.determineResultFromIdempotencyRecord`); the key credits it.
 - Not built: posting classifier, taxonomy file, bank/selection logic, grader for v2 keys, backend API.

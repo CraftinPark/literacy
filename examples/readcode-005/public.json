@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "id": "readcode-005",
+  "version": 1,
+  "title": "Deno std: mapping with a concurrency limit",
+  "intro": "pooledMap from Deno's standard library (@std/async). It runs an async function over every item of an input, with at most poolLimit calls running at once, and gives back the results as an async iterator in input order. This is the whole file, unchanged except for one line. A typical use: fetch 10,000 URLs with no more than 5 requests in flight.",
+  "language": "typescript",
+  "level": "junior",
+  "estimated_minutes": 20,
+  "concepts": [
+    {
+      "id": "backend.messaging.backpressure",
+      "name": "Backpressure"
+    },
+    {
+      "id": "backend.concurrency.thread-worker-pools",
+      "name": "Thread and worker pools"
+    },
+    {
+      "id": "backend.resources.unbounded-buffers",
+      "name": "Unbounded buffers"
+    },
+    {
+      "id": "backend.errors.error-propagation",
+      "name": "Error propagation"
+    }
+  ],
+  "files": [
+    {
+      "path": "pool.ts",
+      "line_count": 117
+    }
+  ],
+  "license": {
+    "spdx": "MIT",
+    "attribution": "From the Deno standard library (@std/async), Copyright 2018-2026 the Deno authors, MIT License.",
+    "source_url": "https://github.com/denoland/std/blob/f834d0223364361169314833e3c7a8f62ce11d58/async/pool.ts"
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "dimension": "understanding",
+      "text": "What does pooledMap return, and in what order do the results come out?"
+    },
+    {
+      "id": "Q2",
+      "dimension": "understanding",
+      "text": "What does the executing array hold, and how does an entry get removed from it?"
+    },
+    {
+      "id": "Q3",
+      "dimension": "bugs",
+      "text": "Does pooledMap keep its promise that at most poolLimit calls run at once? What happens with a large input? Point to the lines with a code comment if you can."
+    },
+    {
+      "id": "Q4",
+      "dimension": "design",
+      "text": "When the pool is full, why wait on Promise.race(executing) rather than Promise.all(executing)?"
+    },
+    {
+      "id": "Q5",
+      "dimension": "design",
+      "text": "Why does the loop write each promise into the TransformStream straight away, instead of waiting for its result first?"
+    },
+    {
+      "id": "Q6",
+      "dimension": "improvements",
+      "text": "How would you write a test that proves no more than poolLimit calls ever run at the same time?"
+    },
+    {
+      "id": "Q7",
+      "dimension": "improvements",
+      "text": "A caller only needs the first few results and stops reading. What happens to the rest of the work today, and what would you add so it can stop early?"
+    }
+  ]
+}

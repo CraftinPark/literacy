@@ -30,3 +30,12 @@
   notes: Use packages/idempotency; anchor on persistence/BasePersistenceLayer.ts
          (key hashing, in-progress records, expiry).
 
+- id: deno-std-async
+  url: https://github.com/denoland/std
+  license: MIT   # LICENSE checked at the pinned commit (Claude, 2026-10-27; needs a human check)
+  language: typescript
+  pinned_commit: f834d0223364361169314833e3c7a8f62ce11d58   # used by examples/readcode-005
+  concepts: [backend.messaging.backpressure, backend.concurrency.thread-worker-pools,
+             backend.resilience.retries-backoff, backend.resilience.circuit-breakers]
+  notes: The async/ folder has small, dependency-free, unchanged-usable files (pool.ts, channel.ts,
+         retry.ts, unstable_semaphore.ts, unstable_circuit_breaker.ts). Good for junior-level examples.

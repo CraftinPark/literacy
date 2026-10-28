@@ -1,0 +1,7 @@
+target: code/
+tool: tsc 5.9.3
+command: tsc --noEmit -p internal/verification/tsconfig.json (files: pool.ts)
+file: pool.ts sha256=9bf06cea42f659ac9005d8d6eb0c2c319734ee6a78abb8cc2cb03e93d0788581
+result: PASS
+output:
+(none)
