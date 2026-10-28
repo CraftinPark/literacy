@@ -1,7 +1,8 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { languageOf, monaco, pathOf, uriOf } from '../lib/monaco'
+import { editorTheme, languageOf, monaco, pathOf, uriOf } from '../lib/monaco'
+import { currentTheme, onThemeChange } from '../lib/theme'
 
 export type LineMark = { start: number; end: number; kind: 'draft' | 'saved' }
 export interface Insert { key: string; afterLine: number; node: ReactNode }
@@ -85,7 +86,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
   // ---- create the editor and the models once
   useEffect(() => {
     const e = monaco.editor.create(host.current!, {
-      theme: 'readcode', ...FONT, automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 10, bottom: 96 },
+      theme: editorTheme(currentTheme()), ...FONT, automaticLayout: true, scrollBeyondLastLine: false, padding: { top: 10, bottom: 96 },
       minimap: { enabled: true, renderCharacters: false, scale: 1 }, lineNumbersMinChars: 4, glyphMargin: false,
       fixedOverflowWidgets: true, smoothScrolling: true, stickyScroll: { enabled: false }, tabSize: 2,
       renderLineHighlight: 'line', 'semanticHighlighting.enabled': false, contextmenu: true,
@@ -130,7 +131,10 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
       },
     })
     setGen((g) => g + 1)
+    // Monaco's theme is global; follow the app's light/dark switch.
+    const stopTheme = onThemeChange((t) => monaco.editor.setTheme(editorTheme(t)))
     return () => {
+      stopTheme()
       opener.dispose()
       e.dispose()
       for (const m of models.current.values()) m.dispose()
@@ -271,7 +275,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
     if (!showDiff || !diffHost.current || !file) return
     const original = monaco.editor.createModel(file.original, languageOf(file.path))
     const diff = monaco.editor.createDiffEditor(diffHost.current, {
-      theme: 'readcode', ...FONT, automaticLayout: true, renderSideBySide: false, originalEditable: false,
+      theme: editorTheme(currentTheme()), ...FONT, automaticLayout: true, renderSideBySide: false, originalEditable: false,
       scrollBeyondLastLine: false, minimap: { enabled: false }, renderOverviewRuler: false,
     })
     diff.setModel({ original, modified: models.current.get(file.path)! })

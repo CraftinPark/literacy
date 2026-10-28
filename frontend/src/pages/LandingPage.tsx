@@ -1,4 +1,5 @@
 import { Logo } from '../components/Logo'
+import { SettingsMenu } from '../components/SettingsMenu'
 
 const STEPS = [
   { title: 'Understand', body: 'Explain what the code does and why it is built that way, in your own words.' },
@@ -27,7 +28,10 @@ export default function LandingPage() {
     <div className="min-h-screen bg-canvas">
       <header className="flex h-14 items-center justify-between bg-canvas px-5">
         <Logo />
-        <a href="#/exercises" className="flex h-9 items-center rounded-lg bg-accent px-4 font-semibold text-accent-on">Start practicing</a>
+        <div className="flex items-center gap-4">
+          <SettingsMenu />
+          <a href="#/exercises" className="flex h-9 items-center rounded-lg bg-accent px-4 font-semibold text-accent-on">Start practicing</a>
+        </div>
       </header>
 
       <div className="mx-auto max-w-[1080px] px-4 py-16 md:py-24">

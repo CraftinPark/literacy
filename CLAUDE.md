@@ -130,7 +130,10 @@ in overlay widgets (view-zone content can't be clicked). Edited files get a dot,
 line comments (Bug / Question / Design / Improvement), autosave to localStorage (answers and edits), submit shows the
 submission JSON (`schemas/submission.schema.json`, v2: `answers` keyed by question id, `edits` as unified diffs). No grading is connected.
 The exercise page is lazy-loaded (Monaco is ~3.4 MB plus a 6 MB TypeScript worker); trimming Monaco's unused languages is a TODO.
-Visual language (John, 2026-10-26): dark with **near-black neutrals** (page `#0A0A0A`, code `#111111`, no blue tint),
+Visual language (John, 2026-10-26/27): **light and dark themes** chosen in the Settings menu (Light / Dark / Match system) (`components/SettingsMenu.tsx`, a gear dropdown;
+`lib/theme.ts`; follows the OS by default). Dark is a softened near-black (page `#121212`, code `#181818`, no blue tint).
+All colours are CSS variables per theme in `src/theme.css` (Tailwind tokens point at them); Monaco has matching
+`readcode-dark` / `readcode-light` themes;
 **typographic** (no hairline borders or outlined boxes; structure comes from
 whitespace, type size/weight and filled fields), slate-blue accent `#4A6FA5` for actions only, Source Sans 3 + Source Code Pro,
 and one quiet hue per tab (Understand/Bugs/Design/Improve, `sec.*` tokens, `src/lib/hues.ts`) on the tab, question numbers,

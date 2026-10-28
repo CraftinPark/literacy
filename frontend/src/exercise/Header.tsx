@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ConceptTags } from '../components/ConceptTags'
 import { Logo } from '../components/Logo'
+import { SettingsMenu } from '../components/SettingsMenu'
 import type { PublicExercise } from '../lib/types'
 import { languageLabel } from '../lib/types'
 
@@ -49,6 +50,7 @@ export function Header({ ex, lines, answeredCount, totalPrompts, commentCount, s
           <div className="h-1.5 rounded-[3px] bg-accent" style={{ width: `${pct}%` }} />
         </div>
       </div>
+      <SettingsMenu />
       <Timer startedAt={startedAt} minutes={ex.estimated_minutes} />
       <button type="button" onClick={onSubmit} className="h-9 rounded-lg bg-accent px-4 font-semibold text-accent-on hover:bg-accent-hover">
         Submit for review

@@ -1,0 +1,95 @@
+/* Theme colours as RGB triplets so Tailwind's opacity modifiers (text-ink/85) keep working.
+
+   Dark is the default; lib/theme.ts sets data-theme on <html> from the user's choice or the system. */
+
+:root {
+  color-scheme: dark;
+  --c-ink: 236 236 236;
+  --c-muted: 150 150 150;
+  --c-line: 42 42 42;
+  --c-line-strong: 60 60 60;
+  --c-canvas: 18 18 18;
+  --c-surface: 28 28 28;
+  --c-panel: 22 22 22;
+  --c-chip: 36 36 36;
+  --c-track: 44 44 44;
+  --c-field: 26 26 26;
+  --c-accent: 74 111 165;
+  --c-accent-hover: 87 128 184;
+  --c-accent-on: 255 255 255;
+  --c-accent-soft: 34 40 51;
+  --c-accent-text: 157 182 217;
+  --c-ok: 76 195 138;
+  --c-danger: 229 83 75;
+  --c-bug: 245 197 24;
+  --c-bug-soft: 58 49 20;
+  --c-bug-ink: 17 17 17;
+  --c-sec-understand: 143 179 224;
+  --c-sec-bugs: 227 179 65;
+  --c-sec-design: 179 157 219;
+  --c-sec-improve: 108 197 154;
+  --c-code-bg: 24 24 24;
+  --c-code-bar: 24 24 24;
+  --c-code-border: 42 42 42;
+  --c-code-text: 220 220 220;
+  --c-code-dim: 128 128 128;
+  --c-code-fold: 29 29 29;
+  --c-code-side: 18 18 18;
+  --c-code-hover: 34 34 34;
+  --c-code-select: 44 44 44;
+  --c-code-kw: 125 183 255;
+  --c-code-const: 244 185 122;
+  --c-code-str: 169 217 161;
+  --c-code-com: 110 110 110;
+  --c-code-pre: 201 169 255;
+  --c-code-note: 111 146 194;
+  --c-code-note-text: 175 196 226;
+  --c-code-note-bg: 30 30 30;
+  --c-code-note-border: 44 44 44;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --c-ink: 27 31 36;
+  --c-muted: 95 107 120;
+  --c-line: 226 229 233;
+  --c-line-strong: 203 209 216;
+  --c-canvas: 245 246 248;
+  --c-surface: 255 255 255;
+  --c-panel: 240 242 245;
+  --c-chip: 234 236 239;
+  --c-track: 226 229 233;
+  --c-field: 238 240 243;
+  --c-accent: 62 99 153;
+  --c-accent-hover: 52 84 138;
+  --c-accent-on: 255 255 255;
+  --c-accent-soft: 227 234 244;
+  --c-accent-text: 52 90 143;
+  --c-ok: 30 138 85;
+  --c-danger: 196 54 45;
+  --c-bug: 224 168 0;
+  --c-bug-soft: 255 242 194;
+  --c-bug-ink: 27 31 36;
+  --c-sec-understand: 63 111 176;
+  --c-sec-bugs: 168 116 0;
+  --c-sec-design: 123 85 184;
+  --c-sec-improve: 47 138 91;
+  --c-code-bg: 255 255 255;
+  --c-code-bar: 255 255 255;
+  --c-code-border: 226 229 233;
+  --c-code-text: 31 35 40;
+  --c-code-dim: 107 116 128;
+  --c-code-fold: 243 244 246;
+  --c-code-side: 245 246 248;
+  --c-code-hover: 234 236 239;
+  --c-code-select: 220 230 243;
+  --c-code-kw: 31 95 191;
+  --c-code-const: 181 83 10;
+  --c-code-str: 46 125 50;
+  --c-code-com: 138 143 152;
+  --c-code-pre: 123 63 191;
+  --c-code-note: 76 121 181;
+  --c-code-note-text: 52 90 143;
+  --c-code-note-bg: 243 246 250;
+  --c-code-note-border: 216 224 234;
+}

@@ -33,8 +33,8 @@ function PromptText({ text, fnNames }: { text: string; fnNames: string[] }) {
 
 function CheckIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4CC38A" strokeWidth="2.4" strokeLinecap="round"
-      strokeLinejoin="round" role="img" aria-label="Answered" className="mt-[3px] flex-none">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"
+      strokeLinejoin="round" role="img" aria-label="Answered" className="mt-[3px] flex-none text-ok">
       <path d="M5 12.5l4.5 4.5L19 7" />
     </svg>
   )

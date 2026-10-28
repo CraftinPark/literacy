@@ -161,7 +161,7 @@ function FileTree({ nodes, depth, activeFile, onOpenFile, closed, onToggle }: {
 
 const ROW = 'flex h-[22px] w-full items-center gap-1.5 pr-2 text-left text-[13px] leading-none'
 const rowState = (active: boolean) =>
-  active ? 'bg-code-select text-white shadow-[inset_1px_0_0_theme(colors.code.note)]' : 'text-code-text hover:bg-code-hover'
+  active ? 'bg-code-select text-ink shadow-[inset_1px_0_0_theme(colors.code.note)]' : 'text-code-text hover:bg-code-hover'
 
 export function Sidebar(p: Props) {
   const [filesOpen, setFilesOpen] = useState(true)

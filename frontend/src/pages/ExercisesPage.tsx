@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ConceptTags } from '../components/ConceptTags'
 import { Logo } from '../components/Logo'
+import { SettingsMenu } from '../components/SettingsMenu'
 import { hasProgress } from '../lib/storage'
 import type { ExerciseSummary } from '../lib/types'
 import { languageLabel } from '../lib/types'
@@ -18,7 +19,7 @@ export default function ExercisesPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="flex h-14 items-center bg-canvas px-5"><Logo /></header>
+      <header className="flex h-14 items-center justify-between bg-canvas px-5"><Logo /><SettingsMenu /></header>
       <div className="mx-auto max-w-[880px] px-4 py-10">
         <h1 className="text-xl font-semibold">Exercises</h1>
         <p className="mt-1 text-muted">Real open-source code with a bug added. Read it, find what's wrong, and explain the design.</p>

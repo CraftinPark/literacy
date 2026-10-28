@@ -1,3 +1,5 @@
+@import './theme.css';
+
 @tailwind base;
 
 @layer base {
@@ -10,10 +12,6 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  color-scheme: dark;
-}
-
 body {
   @apply bg-canvas font-sans text-[13px] text-ink antialiased;
 }
@@ -23,7 +21,7 @@ body {
 }
 
 /* Monaco line highlights for comments (see exercise/CodeEditor.tsx). */
-.rc-line-saved { background: theme('colors.code.note / 13%'); }
-.rc-line-draft { background: rgba(245, 197, 24, 0.14); }
-.rc-gutter-saved { box-shadow: inset 3px 0 0 theme('colors.code.note'); }
-.rc-gutter-draft { box-shadow: inset 3px 0 0 #F5C518; }
+.rc-line-saved { background: rgb(var(--c-code-note) / 0.13); }
+.rc-line-draft { background: rgb(var(--c-bug) / 0.16); }
+.rc-gutter-saved { box-shadow: inset 3px 0 0 rgb(var(--c-code-note)); }
+.rc-gutter-draft { box-shadow: inset 3px 0 0 rgb(var(--c-bug)); }
