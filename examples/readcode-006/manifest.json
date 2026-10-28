@@ -1,0 +1,91 @@
+{
+  "schema_version": 2,
+  "id": "readcode-006",
+  "sources": [
+    {
+      "repo": "https://github.com/python/cpython",
+      "commit": "495fef1b4719be2f46dfe1409097cb91d770e56a",
+      "path": "Lib/asyncio/queues.py",
+      "sha256": "84b3599e018ba9699c356030001978995a76819369015a3f1c91d41989970334",
+      "license_spdx": "PSF-2.0",
+      "license_evidence": "LICENSE at the commit contains the 'PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2' (permissive, BSD-style). Checked by Claude 2026-10-27; needs a human check, as PSF-2.0 is not one of the MIT/BSD/Apache licences preferred in CLAUDE.md.",
+      "code_path": "queues.py"
+    }
+  ],
+  "tests": [
+    "backend.messaging.message-ordering"
+  ],
+  "present": [
+    "backend.messaging.backpressure",
+    "backend.concurrency.async-await-pitfalls"
+  ],
+  "language": "python",
+  "level": "junior",
+  "origin": "adapted",
+  "bug_pattern": "waiters-woken-newest-first",
+  "license": "PSF-2.0",
+  "taxonomy_version": "backend-v0",
+  "baseline": {
+    "files": [
+      {
+        "path": "queues.py",
+        "sha256": "5655ceb727cd889586b03b78c0d7b6155a1cbaf4e76675acfb9a44553adaabc7"
+      }
+    ],
+    "changes_summary": "CPython's Lib/asyncio/queues.py with one change: the package-relative imports 'from . import locks' and 'from . import mixins' become 'from asyncio import locks' and 'from asyncio import mixins', so the file runs on its own. Runs on Python 3.10 and later.",
+    "compile_check": {
+      "passed": true,
+      "tool": "python 3.10.5 compile()",
+      "command": "compile() each file (syntax check, no bytecode written) (files: queues.py)",
+      "evidence_file": "internal/evidence/compile_baseline.txt"
+    }
+  },
+  "shipped": {
+    "files": [
+      {
+        "path": "queues.py",
+        "sha256": "e8624d621097a8a42d39a6595b658aaa50b3cc21c92a51632cd46845a1c503ad"
+      }
+    ],
+    "compile_check": {
+      "passed": true,
+      "tool": "python 3.10.5 compile()",
+      "command": "compile() each file (syntax check, no bytecode written) (files: queues.py)",
+      "evidence_file": "internal/evidence/compile_shipped.txt"
+    }
+  },
+  "bugs": [
+    {
+      "id": "B1",
+      "file": "queues.py",
+      "line": 74,
+      "change": {
+        "old": "            waiter = waiters.popleft()\n",
+        "new": "            waiter = waiters.pop()\n"
+      }
+    }
+  ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "file": "queues.py",
+      "line": 293,
+      "change": {
+        "old": "        heappush(self._queue, item)\n",
+        "new": "        self._queue.append(item)\n        self._queue.sort()\n"
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "notes": "Built by Claude 2026-10-27 for backend.messaging.message-ordering (0.4 in the Amazon posting), junior level, first Python example, using the new format (bug report with hints, context brief, anchored understanding questions, a worsened section for the improvements question). For the reviewer: (1) Licence is PSF-2.0, permissive but not one of the preferred MIT/BSD/Apache; needs a human decision. (2) The scenario runs on the Python that runs the tools (3.10.5 here). (3) 310 lines, one file."
+  },
+  "scenario": {
+    "harness": "internal/verification/scenario.py",
+    "reproduced": true,
+    "baseline_evidence": "internal/evidence/scenario_baseline.txt",
+    "shipped_evidence": "internal/evidence/scenario_shipped.txt",
+    "worsened_evidence": "internal/evidence/scenario_worsened.txt",
+    "behaviour_preserved": true
+  }
+}

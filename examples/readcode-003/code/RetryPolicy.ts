@@ -17,16 +17,20 @@ const delay = (duration: number, unref: boolean, signal: AbortSignal) =>
     }
 
     const abortEvt = onAbort(signal);
-    const timer = setTimeout(() => {
-      abortEvt.dispose();
-      resolve();
-    }, duration);
+    const start = Date.now();
+    const timer = setInterval(() => {
+      if (Date.now() - start >= duration) {
+        clearInterval(timer);
+        abortEvt.dispose();
+        resolve();
+      }
+    }, 1);
     if (unref) {
       timer.unref();
     }
 
     abortEvt.event(() => {
-      clearTimeout(timer);
+      clearInterval(timer);
       resolve();
     });
   });

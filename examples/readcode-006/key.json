@@ -1,0 +1,205 @@
+{
+  "schema_version": 2,
+  "id": "readcode-006",
+  "version": 1,
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Waiting tasks are woken newest first",
+      "pattern": "waiters-woken-newest-first",
+      "locations": [
+        {
+          "file": "queues.py",
+          "function": "_wakeup_next",
+          "start_line": 71,
+          "end_line": 77
+        }
+      ],
+      "description": "_wakeup_next() takes waiters.pop() (the most recently added waiter) instead of waiters.popleft() (the one that has waited longest). The waiters deque is filled with append() in arrival order, so the newest waiter is woken first.",
+      "runtime_failure": "When the queue is full and several producers wait in put(), each freed slot goes to the producer that started waiting last, so their messages enter the queue in reverse: m1 then m4, m3, m2. With several waiting consumers, the newest consumer gets the next item and the oldest can wait indefinitely.",
+      "conditions": "Only when more than one task is waiting at the same time: a full queue with several producers, or an empty queue with several consumers. With an unbounded queue, or when the consumer keeps up, nothing waits and the order is correct.",
+      "fix": "Wake the oldest waiter: waiter = waiters.popleft()."
+    }
+  ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "title": "PriorityQueue re-sorts the whole list on every put",
+      "kind": "performance",
+      "locations": [
+        {
+          "file": "queues.py",
+          "function": "_put",
+          "start_line": 292,
+          "end_line": 294
+        }
+      ],
+      "description": "PriorityQueue._put appends the item and sorts the entire list instead of pushing it onto the heap. The result is still a valid heap, so behaviour is unchanged, but each put costs O(n log n) (about O(n) for an already sorted list) instead of O(log n).",
+      "when_it_matters": "When many items are queued at once; with a handful of items the cost is invisible.",
+      "better": "heapq.heappush(self._queue, item)."
+    }
+  ],
+  "rubric": [
+    {
+      "id": "R1",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "put_nowait('a') and put_nowait('b') store the items; put_nowait('c') raises QueueFull because the queue already holds maxsize items."
+    },
+    {
+      "id": "R2",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "The first two get_nowait() calls return 'a' then 'b' (first in, first out); the third raises QueueEmpty."
+    },
+    {
+      "id": "R3",
+      "question_id": "Q1",
+      "kind": "bonus",
+      "point": "get_nowait() also wakes the oldest waiting producer, if any; here there are none because put_nowait never waits."
+    },
+    {
+      "id": "R4",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "1:alert, 1:page, 2:report, 3:cleanup: the heap returns the smallest tuple first, comparing priority and then the second element."
+    },
+    {
+      "id": "R5",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "'alert' comes first because ('alert' < 'page') decides between equal priorities, not the order they arrived in: items with the same priority are not first in, first out."
+    },
+    {
+      "id": "R6",
+      "question_id": "Q2",
+      "kind": "bonus",
+      "point": "If the second elements cannot be compared (two dicts with the same priority), put fails with a TypeError."
+    },
+    {
+      "id": "R7",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "get() sees the queue is empty, creates a future, appends it to _getters and awaits it."
+    },
+    {
+      "id": "R8",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "put_nowait('x') stores the item and calls _wakeup_next(_getters), which pops the oldest waiter that is not done and sets its result; the consumer resumes, finds the queue not empty and get_nowait() returns 'x'."
+    },
+    {
+      "id": "R9",
+      "question_id": "Q3",
+      "kind": "bonus",
+      "point": "If the consumer is cancelled after being woken, it removes itself and wakes the next getter so the item is not left waiting."
+    },
+    {
+      "id": "R10",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "_wakeup_next() takes waiters.pop(), the newest waiter, instead of popleft(), the oldest.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R11",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "Producers waiting on a full queue are let in newest first, so their messages enter the queue in reverse order: m1, m4, m3, m2.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R12",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "It only happens when the queue is full and several producers are waiting; with an unbounded or rarely full queue, order looks fine.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R13",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "Fix: waiters.popleft().",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R14",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "The same function wakes waiting consumers too, so with several consumers the newest waiting consumer gets the next item, and the longest-waiting one can be starved.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R15",
+      "question_id": "Q5",
+      "kind": "required",
+      "point": "Being woken only means a slot was free at that moment; another task (for example a put_nowait) can take it before this one runs again, so put() must check again and wait again if the queue is full."
+    },
+    {
+      "id": "R16",
+      "question_id": "Q5",
+      "kind": "bonus",
+      "point": "If the waiting putter is cancelled after being woken, it hands the wake-up to the next putter so the free slot is not wasted."
+    },
+    {
+      "id": "R17",
+      "question_id": "Q6",
+      "kind": "required",
+      "point": "maxsize gives backpressure: when the queue is full, put() makes fast producers wait for the consumer."
+    },
+    {
+      "id": "R18",
+      "question_id": "Q6",
+      "kind": "required",
+      "point": "Unbounded, the queue grows as long as producers outpace the consumer: memory keeps rising and every item waits longer (latency grows) until the process runs out of memory."
+    },
+    {
+      "id": "R19",
+      "question_id": "Q6",
+      "kind": "bonus",
+      "point": "Choosing maxsize is a trade-off between smoothing bursts (bigger) and keeping memory and latency bounded (smaller)."
+    },
+    {
+      "id": "R20",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "_put() appends and then sorts the whole list on every put: O(n log n) in general (about O(n) for an already sorted list) instead of O(log n) with heappush.",
+      "worsening_id": "W1"
+    },
+    {
+      "id": "R21",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "Use heapq.heappush(self._queue, item), which keeps the heap property get() relies on.",
+      "worsening_id": "W1"
+    },
+    {
+      "id": "R22",
+      "question_id": "Q7",
+      "kind": "bonus",
+      "point": "It matters when many items are queued; it still works because a sorted list is a valid heap, which is why it goes unnoticed.",
+      "worsening_id": "W1"
+    },
+    {
+      "id": "R23",
+      "question_id": "Q8",
+      "kind": "required",
+      "point": "Put a tie-breaker between the priority and the item: (priority, next(counter), item) with itertools.count(), so equal priorities come out in arrival order."
+    },
+    {
+      "id": "R24",
+      "question_id": "Q8",
+      "kind": "bonus",
+      "point": "The counter also means the items themselves are never compared, avoiding TypeErrors for payloads that cannot be ordered."
+    }
+  ],
+  "reveal_after_bug": [
+    "Q1",
+    "Q3",
+    "Q5"
+  ],
+  "grader_notes": [
+    "A line comment on queues.py line 74 that explains pop() vs popleft() earns R10 to R12 even if Q4 is blank.",
+    "This is the easiest level: accept plain-language answers such as \"it lets the last producer in first\"."
+  ]
+}

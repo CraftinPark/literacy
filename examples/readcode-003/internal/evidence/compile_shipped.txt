@@ -1,7 +1,7 @@
 target: code/
 tool: tsc 5.9.3
 command: tsc --noEmit -p internal/verification/tsconfig.json (files: RetryPolicy.ts, backoff/ExponentialBackoff.ts, backoff/ExponentialBackoffGenerators.ts, backoff/ConstantBackoff.ts, backoff/Backoff.ts, common/Executor.ts, Policy.ts, common/Event.ts, common/abort.ts)
-file: RetryPolicy.ts sha256=7d761ae8d6634b58550d76a89582a3a30d6f4dc9b28dd2445575582b648d975c
+file: RetryPolicy.ts sha256=72df21466061e2de7dc6c8c6071a2e22b5669c313b9409d5385539fa7e1d8d4a
 file: backoff/ExponentialBackoff.ts sha256=df0d7f60bcc5870051bef431d315c30a2c9bd7200fb7d94d5b0db62fc27aebf3
 file: backoff/ExponentialBackoffGenerators.ts sha256=16e6be8ee81339313bb5a4bbc907ea9c05fee031928d52c58c7869448bc522cb
 file: backoff/ConstantBackoff.ts sha256=d5fd310cfe6480747ee48748cf192298e64eefe2874dd8a4e8bb5c08a3e4d1ff

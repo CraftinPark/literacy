@@ -21,30 +21,47 @@
       "fix": "Await the race: await Promise.race(executing);"
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "title": "Removing a finished call rebuilds the whole array",
+      "kind": "performance",
+      "description": "Each finished call removes itself by filtering the executing array into a new array and splicing all of it back, instead of removing its own entry.",
+      "when_it_matters": "With a large poolLimit, where every completion copies hundreds or thousands of entries.",
+      "better": "executing.splice(executing.indexOf(e), 1), or a Set of running promises with delete(e).",
+      "locations": [
+        {
+          "file": "pool.ts",
+          "start_line": 81,
+          "end_line": 83
+        }
+      ]
+    }
+  ],
   "rubric": [
     {
-      "id": "R1",
+      "id": "R18",
       "question_id": "Q1",
       "kind": "required",
-      "point": "An async iterator of the results, in the same order as the input: each promise is written to the TransformStream in input order and the transform awaits them one at a time."
+      "point": "All three start at 0 ms (three items fit in a pool of 5); 1 finishes at 100 ms, 2 at 200 ms and 4 at 400 ms."
     },
     {
-      "id": "R2",
+      "id": "R19",
       "question_id": "Q1",
-      "kind": "bonus",
-      "point": "If a call throws, the calls already running are allowed to finish, then the iterator throws an AggregateError with all the failures."
+      "kind": "required",
+      "point": "The results are yielded in input order, 4, 1, 2, and the first one only appears at 400 ms because 4 is first in line; 1 and 2 follow straight after."
     },
     {
-      "id": "R3",
+      "id": "R20",
       "question_id": "Q2",
       "kind": "required",
-      "point": "One promise per call that is currently running; when the call's promise resolves, its then() removes the entry with splice(indexOf(e), 1)."
+      "point": "At 0 ms the entries for 4, 1 and 2; at 100 ms the entry for 1 has removed itself, leaving 4 and 2; at 200 ms only 4; at 400 ms it is empty."
     },
     {
-      "id": "R4",
+      "id": "R21",
       "question_id": "Q2",
       "kind": "bonus",
-      "point": "If the call rejects, the entry is not removed and Promise.race(executing) rejects, which sends the loop to the catch block."
+      "point": "Each entry is the call's promise followed by its own removal, so an entry leaves the array exactly when its call finishes."
     },
     {
       "id": "R5",
@@ -106,16 +123,25 @@
       "point": "writer.write() is not awaited either, so if the caller reads slowly, finished results pile up in the stream: the pool limits running calls, not unread results."
     },
     {
-      "id": "R14",
+      "id": "R22",
       "question_id": "Q6",
       "kind": "required",
-      "point": "Use an iteratorFn that increments a counter when it starts and decrements it when it finishes (after a delay), record the maximum, and assert it never exceeds poolLimit, with more items than poolLimit."
+      "point": "When a call finishes it filters the whole executing array into a new array and copies it back, instead of removing the one finished entry.",
+      "worsening_id": "W1"
     },
     {
-      "id": "R15",
+      "id": "R23",
+      "question_id": "Q6",
+      "kind": "required",
+      "point": "Remove just that entry: executing.splice(executing.indexOf(e), 1), or keep the running calls in a Set and delete(e).",
+      "worsening_id": "W1"
+    },
+    {
+      "id": "R24",
       "question_id": "Q6",
       "kind": "bonus",
-      "point": "Control completion with deferred promises or fake timers so the test is deterministic; also check that an async input is pulled lazily."
+      "point": "It matters with a large poolLimit (hundreds or thousands): every completion allocates and copies the whole array, and spreading a very large array into splice can even exceed the argument limit.",
+      "worsening_id": "W1"
     },
     {
       "id": "R16",
@@ -129,6 +155,9 @@
       "kind": "bonus",
       "point": "Cancel the stream so the writer's writes fail, call the input iterator's return(), and decide whether running calls are cancelled or allowed to finish."
     }
+  ],
+  "reveal_after_bug": [
+    "Q4"
   ],
   "grader_notes": [
     "A line comment on pool.ts line 86 that says the race is not awaited and explains the effect earns R5 to R7 even if Q3 is blank.",

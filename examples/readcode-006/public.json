@@ -1,0 +1,175 @@
+{
+  "schema_version": 2,
+  "id": "readcode-006",
+  "version": 1,
+  "title": "asyncio queues: who goes next",
+  "intro": "The queue classes from Python's standard library (asyncio/queues.py): Queue, PriorityQueue and LifoQueue, for passing items between coroutines. This is the real file with one line changed, apart from its imports. Start with put(), get() and _wakeup_next().",
+  "brief": {
+    "purpose": "asyncio.Queue is how coroutines in one Python process hand work to each other: producers put items in, consumers take them out, and either side can wait when the queue is full or empty. Crawlers, log processors and job runners are built on it.",
+    "constraints": [
+      "Items must come out in the order they went in (first in, first out); PriorityQueue and LifoQueue change that rule on purpose.",
+      "Producers are often faster than consumers, so a queue can be given a maximum size, and put() then waits until there is room.",
+      "Many producers and consumers can wait on the same queue at once.",
+      "A waiting task can be cancelled at any moment, even right after it has been woken up.",
+      "Everything runs on one event-loop thread: no locks are needed, but a task can lose its turn at every await."
+    ]
+  },
+  "language": "python",
+  "level": "junior",
+  "estimated_minutes": 20,
+  "concepts": [
+    {
+      "id": "backend.messaging.message-ordering",
+      "name": "Message ordering"
+    },
+    {
+      "id": "backend.messaging.backpressure",
+      "name": "Backpressure"
+    },
+    {
+      "id": "backend.concurrency.async-await-pitfalls",
+      "name": "Async/await pitfalls"
+    }
+  ],
+  "files": [
+    {
+      "path": "queues.py",
+      "line_count": 310
+    }
+  ],
+  "license": {
+    "spdx": "PSF-2.0",
+    "attribution": "From CPython (Lib/asyncio/queues.py), Copyright Python Software Foundation, PSF License Version 2. Imports adjusted for this exercise.",
+    "source_url": "https://github.com/python/cpython/blob/495fef1b4719be2f46dfe1409097cb91d770e56a/Lib/asyncio/queues.py"
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "dimension": "understanding",
+      "text": "q = Queue(maxsize=2). You call put_nowait('a'), put_nowait('b'), put_nowait('c'), then get_nowait() three times. What does each of the six calls do or return?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "full() compares qsize() with maxsize, and the _nowait methods raise instead of waiting.",
+          "cost": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Q2",
+      "dimension": "understanding",
+      "text": "A PriorityQueue receives put_nowait((2, 'report')), put_nowait((1, 'page')), put_nowait((3, 'cleanup')) and put_nowait((1, 'alert')), in that order. In what order does get_nowait() return them, and why does 'alert' come out before 'page'?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "A PriorityQueue is a heap of tuples. How does Python compare two tuples whose first elements are equal?",
+          "cost": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Q3",
+      "dimension": "understanding",
+      "text": "A consumer calls await q.get() on an empty queue. What is it waiting on, and what happens, step by step, when a producer then calls put_nowait('x')?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "A waiting get() sleeps on a future. Find the method put_nowait() calls to wake a sleeper.",
+          "cost": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Q4",
+      "dimension": "bugs",
+      "text": "Read the bug report. Find the cause in the code, explain how it leads to what was observed and when it happens, and point to the lines with a code comment.",
+      "report": {
+        "title": "Sensor readings come out of order when the pipeline is busy",
+        "context": "We feed sensor readings into an asyncio Queue with a maximum size, and one consumer task drains it. When the consumer falls behind and the queue fills up, readings come out in the wrong order; when traffic is light everything is in order. Reproduced with a queue of size 1 and four messages.",
+        "steps": [
+          "Create Queue(maxsize=1) and put 'm1', so the queue is full.",
+          "Start three producer tasks that put 'm2', 'm3' and 'm4', in that order; each one has to wait for room.",
+          "Have one consumer get four messages."
+        ],
+        "expected": [
+          "sent:     m1, m2, m3, m4",
+          "received: m1, m2, m3, m4"
+        ],
+        "observed": [
+          "sent:     m1, m2, m3, m4",
+          "received: m1, m4, m3, m2"
+        ],
+        "hints": [
+          {
+            "level": 1,
+            "cost": 1,
+            "text": "Once a message is inside the queue it keeps its place; look at what decides which waiting producer is let in next."
+          },
+          {
+            "level": 2,
+            "cost": 2,
+            "text": "Read _wakeup_next() and ask which end of the waiters deque it takes from."
+          },
+          {
+            "level": 3,
+            "cost": 3,
+            "text": "Line 74 of queues.py."
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q5",
+      "dimension": "design",
+      "text": "After put() is woken up it checks full() again, in a while loop rather than an if. Why?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Between being woken and running again, other tasks get a turn. What could they do to the queue?",
+          "cost": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Q6",
+      "dimension": "design",
+      "text": "Why does the queue let you set a maxsize at all? What would happen in a pipeline whose producers are faster than its consumer if the queue were unbounded?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Think about what put() does when the queue is full, and what happens to memory if it never has to.",
+          "cost": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Q7",
+      "dimension": "improvements",
+      "text": "This section works, but it gets slower as the queue grows. Explain why and when that matters, and rewrite it.",
+      "focus": {
+        "file": "queues.py",
+        "start_line": 292,
+        "end_line": 294
+      },
+      "hints": [
+        {
+          "level": 1,
+          "text": "heapq.heappush keeps the list a heap in O(log n). What does sort() do on every put?",
+          "cost": 0.5
+        }
+      ]
+    },
+    {
+      "id": "Q8",
+      "dimension": "improvements",
+      "text": "How would you make a PriorityQueue keep arrival order among items that have the same priority?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "What could you put in the tuple between the priority and the item?",
+          "cost": 0.5
+        }
+      ]
+    }
+  ]
+}

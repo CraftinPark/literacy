@@ -148,7 +148,7 @@
     "files": [
       {
         "path": "RetryPolicy.ts",
-        "sha256": "7d761ae8d6634b58550d76a89582a3a30d6f4dc9b28dd2445575582b648d975c"
+        "sha256": "72df21466061e2de7dc6c8c6071a2e22b5669c313b9409d5385539fa7e1d8d4a"
       },
       {
         "path": "backoff/ExponentialBackoff.ts",
@@ -194,15 +194,34 @@
     {
       "id": "B1",
       "file": "RetryPolicy.ts",
-      "line": 134,
+      "line": 138,
       "change": {
         "old": "        backoff = backoff ? backoff.next(context) : factory.next(context);\n",
         "new": "        backoff = factory.next(context);\n"
       }
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "file": "RetryPolicy.ts",
+      "change": {
+        "old": "    const abortEvt = onAbort(signal);\n    const timer = setTimeout(() => {\n      abortEvt.dispose();\n      resolve();\n    }, duration);\n    if (unref) {\n      timer.unref();\n    }\n\n    abortEvt.event(() => {\n      clearTimeout(timer);\n",
+        "new": "    const abortEvt = onAbort(signal);\n    const start = Date.now();\n    const timer = setInterval(() => {\n      if (Date.now() - start >= duration) {\n        clearInterval(timer);\n        abortEvt.dispose();\n        resolve();\n      }\n    }, 1);\n    if (unref) {\n      timer.unref();\n    }\n\n    abortEvt.event(() => {\n      clearInterval(timer);\n"
+      },
+      "line": 19
+    }
+  ],
   "review": {
     "status": "pending",
     "notes": "Built by Claude 2026-10-27 from the pool entry for cockatiel (concept chosen from the Amazon posting's top weights). For the reviewer: (1) 816 lines over 9 files, over the 500-650 target; Policy.ts (227) and Event.ts (143) are support code and could be trimmed further. (2) The bug only shows with a growing backoff (ExponentialBackoff); with ConstantBackoff it is invisible, which is realistic. (3) Kept cockatiel's folder layout (backoff/, common/) and its compiler settings (nodenext, strict, noUnused*). (4) Licence checked by Claude from LICENSE and package.json; needs a human check."
+  },
+  "scenario": {
+    "harness": "internal/verification/scenario.ts",
+    "reproduced": true,
+    "baseline_evidence": "internal/evidence/scenario_baseline.txt",
+    "shipped_evidence": "internal/evidence/scenario_shipped.txt",
+    "worsened_evidence": "internal/evidence/scenario_worsened.txt",
+    "behaviour_preserved": true
   }
 }

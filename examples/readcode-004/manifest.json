@@ -170,7 +170,7 @@
       },
       {
         "path": "deepSort.ts",
-        "sha256": "a1631833844e5d77a23882164c4e72b631c270495ce7057cca97ea6794becd08"
+        "sha256": "b359928e1fc4e06a32228eee734e7d156d6ed7d7e511779f565e9cdb3b3897c2"
       },
       {
         "path": "IdempotencyConfig.ts",
@@ -211,8 +211,27 @@
       }
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "file": "deepSort.ts",
+      "change": {
+        "old": "    .reduce((acc, key) => {\n      acc[key] = deepSort(object[key]);\n\n      return acc;\n    }, {} as JSONObject);\n",
+        "new": "    .reduce(\n      (acc, key) => ({ ...acc, [key]: deepSort(object[key]) }),\n      {} as JSONObject\n    );\n"
+      },
+      "line": 20
+    }
+  ],
   "review": {
     "status": "pending",
     "notes": "Built by Claude 2026-10-27 from the pool entry for powertools-lambda-typescript (concept from the Amazon posting's top weights). For the reviewer: (1) 1,362 lines over 9 files, well over the 500-650 target. Cut options: drop IdempotencyHandler.ts to handle(), getFunctionResult() and #saveInProgressOrReturnExistingResult (about -150), or fold IdempotencyConfig.ts into stubs.ts (about -70). (2) The real code has a latent bug of its own: determineResultFromIdempotencyRecord compares inProgressExpiryTimestamp with new Date().getUTCMilliseconds() (0-999, not epoch ms), so that branch never runs. Left as is (it is the real code); the key gives credit for spotting it (R13). Possibly worth reporting upstream. (3) No concrete store (DynamoDB/Redis) is included; stubs.ts describes the conditional write instead. (4) Licence MIT-0 checked by Claude; needs a human check."
+  },
+  "scenario": {
+    "harness": "internal/verification/scenario.ts",
+    "reproduced": true,
+    "baseline_evidence": "internal/evidence/scenario_baseline.txt",
+    "shipped_evidence": "internal/evidence/scenario_shipped.txt",
+    "worsened_evidence": "internal/evidence/scenario_worsened.txt",
+    "behaviour_preserved": true
   }
 }

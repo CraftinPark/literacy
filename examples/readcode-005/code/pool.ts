@@ -79,7 +79,7 @@ export function pooledMap<T, R>(
         // can be reported together.
         writer.write(p);
         const e: Promise<unknown> = p.then(() =>
-          executing.splice(executing.indexOf(e), 1)
+          executing.splice(0, executing.length, ...executing.filter((x) => x !== e))
         );
         executing.push(e);
         if (executing.length >= poolLimit) {

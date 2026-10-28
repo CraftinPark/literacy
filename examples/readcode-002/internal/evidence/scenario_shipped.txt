@@ -1,0 +1,7 @@
+target: code/
+command: node scenario.js (scenario.ts compiled with the example's tsconfig)
+output:
+processor runs started for job-1: 2
+times job-1 was found stalled: 2
+final state of job-1: failed (job stalled more than allowable limit)
+errors reported by the worker: Missing lock for job job-1. moveToFinished

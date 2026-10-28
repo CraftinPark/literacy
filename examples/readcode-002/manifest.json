@@ -83,7 +83,7 @@
       },
       {
         "path": "async-fifo-queue.ts",
-        "sha256": "a41fc7f4704765806bfa20f0acd3c8ac57af34638fe6148a515fca8a05be073c"
+        "sha256": "60b8b91d92a5e3af000e40d3719e6bf6b0ad92b0d908837f7777f77717920e29"
       },
       {
         "path": "types.ts",
@@ -108,8 +108,27 @@
       }
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "file": "async-fifo-queue.ts",
+      "change": {
+        "old": "    if (!this.length) {\n      this.head = newNode;\n    } else {\n      this.tail.next = newNode;\n    }\n",
+        "new": "    if (!this.length) {\n      this.head = newNode;\n    } else {\n      let last = this.head;\n      while (last.next) {\n        last = last.next;\n      }\n      last.next = newNode;\n    }\n"
+      },
+      "line": 28
+    }
+  ],
   "review": {
     "status": "pending",
     "notes": "Built by Claude from internal/build-instructions.md; not yet reviewed. For the reviewer: (1) Length is 980 lines (worker 470, lock-manager 153, async-fifo-queue 196, types 161), over the 500-650 target; the rest is BullMQ's four-parameter generics and helpers mainLoop needs to compile. Dropping the generics would save ~60 lines but changes the original code. (2) close() was dropped for length, so graceful-shutdown is no longer in `present`. (3) Compile settings are BullMQ's own (strict, but strictNullChecks off), not plain --strict: async-fifo-queue.ts does not compile under strictNullChecks. (4) Q5 names untrackJob and Q8 says 'long-running': both point toward the bug. (5) The lockDuration doc comment in types.ts (copied from BullMQ) explains what happens when a lock is lost: the main clue, kept on purpose. (6) Licence checked by Claude from LICENSE and package.json at the commit; needs a human check."
+  },
+  "scenario": {
+    "harness": "internal/verification/scenario.ts",
+    "reproduced": true,
+    "baseline_evidence": "internal/evidence/scenario_baseline.txt",
+    "shipped_evidence": "internal/evidence/scenario_shipped.txt",
+    "worsened_evidence": "internal/evidence/scenario_worsened.txt",
+    "behaviour_preserved": true
   }
 }

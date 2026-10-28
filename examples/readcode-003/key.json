@@ -11,8 +11,8 @@
         {
           "file": "RetryPolicy.ts",
           "function": "execute",
-          "start_line": 133,
-          "end_line": 135
+          "start_line": 137,
+          "end_line": 139
         }
       ],
       "description": "execute() asks the factory for a fresh backoff on every retry (factory.next(context)) instead of advancing the one it already has (backoff.next(context)). The backoff variable is overwritten each time and never chained, so the sequence never moves past its first step.",
@@ -21,54 +21,77 @@
       "fix": "Advance the existing backoff: backoff = backoff ? backoff.next(context) : factory.next(context)."
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "title": "Waiting for a retry by polling the clock every millisecond",
+      "kind": "resource-use",
+      "description": "delay() uses setInterval with a 1 ms period and checks elapsed time on every tick, instead of one setTimeout for the whole duration. The result is the same, but each pending retry wakes the event loop about a thousand times per second.",
+      "when_it_matters": "With many retries waiting at once, typically during an outage when one shared policy has thousands of calls in its backoff.",
+      "better": "One setTimeout(..., duration) whose callback disposes the abort listener and resolves; clearTimeout in the abort handler.",
+      "locations": [
+        {
+          "file": "RetryPolicy.ts",
+          "start_line": 12,
+          "end_line": 36
+        }
+      ]
+    }
+  ],
   "rubric": [
     {
-      "id": "R1",
+      "id": "R22",
       "question_id": "Q1",
       "kind": "required",
-      "point": "Each attempt runs through executor.invoke(); a success is returned at once, and a handled failure comes back as { error } or { value } instead of throwing."
+      "point": "Call 1 (attempt 0) fails; onRetry fires with attempt 1 and delay 100; it waits 100 ms. Call 2 (attempt 1) fails; onRetry fires with attempt 2 and delay 100; it waits 100 ms."
     },
     {
-      "id": "R2",
+      "id": "R23",
       "question_id": "Q1",
       "kind": "required",
-      "point": "While retries < maxAttempts and the signal is not aborted, it takes the next backoff (the first from factory.next, later ones from backoff.next), emits onRetry with the delay and attempt, waits the delay, and loops; on the third attempt the success is returned."
+      "point": "Call 3 (attempt 2) returns 'ok' and execute() resolves to 'ok' after about 200 ms; onGiveUp never fires."
     },
     {
-      "id": "R3",
+      "id": "R24",
       "question_id": "Q1",
       "kind": "bonus",
-      "point": "When it gives up it emits onGiveUp, then throws the error or returns the failing value."
+      "point": "onRetry is emitted before the wait starts, and onSuccess fires once for the whole execute(), not per call."
     },
     {
-      "id": "R4",
+      "id": "R25",
       "question_id": "Q2",
       "kind": "required",
-      "point": "ExecuteWrapper applies errorFilter to thrown errors and resultFilter to returned values; the filters come from handleAll, handleType, handleWhen and the or* methods."
+      "point": "ExecuteWrapper.invoke catches the TypeError, the error filter (instanceof NetworkError) says no, and it rethrows: execute() rejects with the TypeError on the first call, with no retry."
     },
     {
-      "id": "R5",
+      "id": "R26",
       "question_id": "Q2",
       "kind": "required",
-      "point": "An error the filter does not handle is rethrown immediately: no retry, no onGiveUp, but onFailure fires with handled: false."
+      "point": "Neither onRetry nor onGiveUp fires; onFailure fires with handled: false (when something listens to it)."
     },
     {
-      "id": "R6",
+      "id": "R27",
       "question_id": "Q2",
       "kind": "bonus",
-      "point": "A returned value that matches resultFilter is treated as a failure and retried; if retries run out it is returned (not thrown)."
+      "point": "A NetworkError instead would be returned as { error }, retried up to 3 more times, and then thrown after onGiveUp."
     },
     {
-      "id": "R7",
+      "id": "R28",
       "question_id": "Q3",
       "kind": "required",
-      "point": "It returns [delay, nextState]; the state is [attempt + 1, the formula value], so the next delay depends on the attempt count and the previous value (decorrelated). The delay grows roughly with exponent^attempt, is scaled by initialDelay and capped at maxDelay."
+      "point": "[100, 1], [200, 2], [400, 3], [800, 4]: the delay is initialDelay * 2^attempts, capped at maxDelay (a fifth call would give 1000), and the state is just the next attempt number."
     },
     {
-      "id": "R8",
+      "id": "R29",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "decorrelatedJitterGenerator keeps [attempt + 1, the formula value], so each delay depends on the previous one, and adds randomness through t = attempt + Math.random()."
+    },
+    {
+      "id": "R30",
       "question_id": "Q3",
       "kind": "bonus",
-      "point": "The random part (t = attempt + Math.random()) spreads callers out so they do not retry in lockstep; rpScalingFactor makes the median delays land near 1, 2, 4... multiples."
+      "point": "The randomness spreads callers out so they do not retry in lockstep."
     },
     {
       "id": "R9",
@@ -130,16 +153,25 @@
       "point": "delay() clears its timer and abort listener on either path, so cancelled calls do not leak timers."
     },
     {
-      "id": "R18",
+      "id": "R31",
       "question_id": "Q7",
       "kind": "required",
-      "point": "Record onRetry and onGiveUp as metrics (count, attempt number, delay) and compare the retry rate with the call rate; alert when it rises."
+      "point": "delay() polls with setInterval every millisecond and compares Date.now() with the start, so a 30-second wait wakes the event loop about 30 000 times instead of once.",
+      "worsening_id": "W1"
     },
     {
-      "id": "R19",
+      "id": "R32",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "Use a single setTimeout(resolve, duration) and clear it in the abort handler; the abort listener already covers cancellation.",
+      "worsening_id": "W1"
+    },
+    {
+      "id": "R33",
       "question_id": "Q7",
       "kind": "bonus",
-      "point": "Log or trace the delay per attempt for a call, which would show whether delays actually grow."
+      "point": "It matters when many retries wait at once (one shared policy, thousands of calls during an outage): thousands of 1 ms timers keep the CPU busy exactly when the system is under stress.",
+      "worsening_id": "W1"
     },
     {
       "id": "R20",
@@ -154,8 +186,11 @@
       "point": "A shared retry budget (retries as a fraction of calls), a circuit breaker in front of the retries, or honouring Retry-After from the service."
     }
   ],
+  "reveal_after_bug": [
+    "Q5"
+  ],
   "grader_notes": [
-    "A line comment around RetryPolicy.ts line 134 that explains the reset earns R9 to R11 even if Q4 is blank.",
+    "A line comment around RetryPolicy.ts line 138 that explains the reset earns R9 to R11 even if Q4 is blank.",
     "Q3 asks about the generator itself; do not require the candidate to notice the bug there."
   ]
 }

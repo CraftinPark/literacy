@@ -1,0 +1,6 @@
+target: code/
+command: node scenario.js (scenario.ts compiled with the example's tsconfig)
+output:
+sent:     m1, m2, m3, m4
+received: m1, m4, m3, m2
+priority order: 1:alert, 1:page, 2:report, 3:cleanup

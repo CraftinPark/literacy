@@ -1,0 +1,7 @@
+target: code/
+tool: python 3.10.5 compile()
+command: compile() each file (syntax check, no bytecode written) (files: queues.py)
+file: queues.py sha256=e8624d621097a8a42d39a6595b658aaa50b3cc21c92a51632cd46845a1c503ad
+result: PASS
+output:
+(none)

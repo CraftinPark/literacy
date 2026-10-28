@@ -1,0 +1,7 @@
+target: code/
+command: node scenario.js (scenario.ts compiled with the example's tsconfig)
+output:
+first call returned: ch_1
+retry returned: ch_2
+times the card was charged: 2
+idempotency records stored: 2

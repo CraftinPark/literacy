@@ -4,6 +4,17 @@
   "version": 1,
   "title": "cockatiel: retrying with exponential backoff",
   "intro": "Excerpts from cockatiel, a resilience library for JavaScript in the style of .NET's Polly. A RetryPolicy runs a function and, when it fails in a way the policy handles, waits and runs it again, with the wait decided by a pluggable backoff. Start with execute() in RetryPolicy.ts; the backoff strategies are in backoff/.",
+  "brief": {
+    "purpose": "cockatiel is a resilience library for JavaScript, modelled on .NET's Polly. Application code wraps calls to other services (HTTP APIs, databases) in policies such as retry, circuit breaker and timeout, so that failures are handled in one place instead of in every caller.",
+    "constraints": [
+      "Calls fail in two ways that matter: briefly (a dropped connection, a restart), where retrying helps, and for a long time (an outage), where retrying quickly makes things worse.",
+      "Many callers usually share the same struggling service, so if they all retry at the same moments they arrive in waves.",
+      "Not every failure should be retried: a 400 Bad Request will fail again, a 503 might not.",
+      "A policy is created once and shared by every call in the application, possibly thousands at the same time.",
+      "Callers must be able to cancel a call, including while it is waiting to retry.",
+      "The library has no dependencies and runs in Node.js and in browsers."
+    ]
+  },
   "language": "typescript",
   "level": "mid",
   "estimated_minutes": 40,
@@ -24,7 +35,7 @@
   "files": [
     {
       "path": "RetryPolicy.ts",
-      "line_count": 155
+      "line_count": 159
     },
     {
       "path": "backoff/ExponentialBackoff.ts",
@@ -68,42 +79,132 @@
     {
       "id": "Q1",
       "dimension": "understanding",
-      "text": "Walk through what execute() does when the function fails twice with a handled error and then succeeds, using an ExponentialBackoff."
+      "text": "The policy has maxAttempts 3 and a ConstantBackoff of 100 ms. The wrapped function throws a handled error on its first two calls and returns 'ok' on the third. List, in order, every call, onRetry event and wait, and what execute() returns.",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Trace the for loop in execute(): retries starts at 0, and onRetry is emitted before the delay starts.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q2",
       "dimension": "understanding",
-      "text": "How does the policy decide whether a failure should be retried at all? What happens to failures it does not handle?"
+      "text": "A policy is built with retry(handleType(NetworkError), { maxAttempts: 3 }). The wrapped function throws a TypeError. What does execute() do, and which events fire?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Look at the catch block in ExecuteWrapper.invoke(): what happens when the error filter returns false?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q3",
       "dimension": "understanding",
-      "text": "What does decorrelatedJitterGenerator return on each call, and what state does it carry from one call to the next?"
+      "text": "Call noJitterGenerator four times with initialDelay 100 and maxDelay 1000, passing back the state each time and starting with no state. What does each call return? What does decorrelatedJitterGenerator keep in its state instead?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "noJitterGenerator's state is just a number; the delay is initialDelay times a power of 2, with a cap.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q4",
       "dimension": "bugs",
-      "text": "Is there anything in how this policy retries that could make an outage of the called service worse? Under what conditions? Point to the lines with a code comment if you can."
+      "text": "Read the bug report. Find the cause in the code, explain how it leads to what was observed and when it happens, and point to the lines with a code comment.",
+      "report": {
+        "title": "Retries hammer the inventory service during an outage",
+        "context": "During a ten-minute outage of the inventory service, our callers retried several times a second instead of backing off, which slowed the recovery. The policy is configured with ExponentialBackoff. Reproduced with the no-jitter generator so the delays are predictable.",
+        "steps": [
+          "Create retry(handleAll, { maxAttempts: 5, backoff: new ExponentialBackoff({ generator: noJitterGenerator, initialDelay: 50, maxDelay: 5000 }) }).",
+          "Record the delay from each onRetry event.",
+          "Execute a function that always throws '503 Service Unavailable'."
+        ],
+        "expected": [
+          "calls to the service: 6",
+          "delay before each retry (ms): 50, 100, 200, 400, 800",
+          "total time spent retrying: about 1.5 s"
+        ],
+        "observed": [
+          "calls to the service: 6",
+          "delay before each retry (ms): 50, 50, 50, 50, 50",
+          "total time spent retrying: about 0.25 s"
+        ],
+        "hints": [
+          {
+            "level": 1,
+            "cost": 1,
+            "text": "The backoff classes compute the right sequence when used on their own; the problem is in how RetryPolicy uses them."
+          },
+          {
+            "level": 2,
+            "cost": 2,
+            "text": "In RetryPolicy.execute(), look at where the backoff for the next retry comes from on each pass through the loop."
+          },
+          {
+            "level": 3,
+            "cost": 3,
+            "text": "Line 138 of RetryPolicy.ts."
+          }
+        ]
+      }
     },
     {
       "id": "Q5",
       "dimension": "design",
-      "text": "Why is a backoff an immutable object whose next() returns a new backoff, rather than a counter kept inside RetryPolicy?"
+      "text": "Why is a backoff an immutable object whose next() returns a new backoff, rather than a counter kept inside RetryPolicy?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Think about one policy object being used by many calls at the same time.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q6",
       "dimension": "design",
-      "text": "Why does execute() check signal.aborted both before and after waiting for the delay?"
+      "text": "Why does execute() check signal.aborted both before and after waiting for the delay?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "delay() can finish early. When, and what should execute() do then?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q7",
       "dimension": "improvements",
-      "text": "How would you make it visible in production that a service is being retried too often or too quickly?"
+      "text": "This section works, but it wastes resources while a retry is waiting. Explain what it costs and when that matters, and rewrite it.",
+      "focus": {
+        "file": "RetryPolicy.ts",
+        "start_line": 12,
+        "end_line": 36
+      },
+      "hints": [
+        {
+          "level": 1,
+          "text": "How many times per second does this wake up while it waits, compared with a single timer?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q8",
       "dimension": "improvements",
-      "text": "What limits would you add so that retries cannot overwhelm a service that is already struggling?"
+      "text": "What limits would you add so that retries cannot overwhelm a service that is already struggling?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Think about the number of attempts, the total time spent, and how many callers retry at once.",
+          "cost": 0.5
+        }
+      ]
     }
   ]
 }

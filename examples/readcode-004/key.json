@@ -21,48 +21,77 @@
       "fix": "Hash the canonical form again: JSON.stringify(deepSort(payload)), as getHashedPayload() does."
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "title": "Sorting an object copies it once per key",
+      "kind": "performance",
+      "description": "sortObject builds its result with a spread inside reduce, so each step copies every key added so far. An object with k keys costs O(k\u00b2) work and allocations instead of O(k).",
+      "when_it_matters": "For large payloads with many keys (a whole API Gateway event, big nested bodies), on every invocation.",
+      "better": "Write into one accumulator (acc[key] = deepSort(object[key]); return acc), or Object.fromEntries(sortedKeys.map((k) => [k, deepSort(object[k])])).",
+      "locations": [
+        {
+          "file": "deepSort.ts",
+          "start_line": 17,
+          "end_line": 23
+        }
+      ]
+    }
+  ],
   "rubric": [
     {
-      "id": "R1",
+      "id": "R22",
       "question_id": "Q1",
       "kind": "required",
-      "point": "First call: handle() resolves the record identity, saveInProgress() writes an INPROGRESS record (a conditional write in the real store), the function runs, and saveSuccess() updates the record to COMPLETED with the response."
+      "point": "First: getRecordIdentity, then saveInProgress (which writes an INPROGRESS record through _putRecord), the function runs, then saveSuccess (which writes the COMPLETED record and its result through _updateRecord)."
     },
     {
-      "id": "R2",
+      "id": "R23",
       "question_id": "Q1",
       "kind": "required",
-      "point": "Second call: saveInProgress() fails with IdempotencyItemAlreadyExistsError; the existing record is validated (processExistingRecord or getRecord) and determineResultFromIdempotencyRecord() returns the stored response without running the function."
+      "point": "Second: getRecordIdentity, then saveInProgress, whose _putRecord fails with IdempotencyItemAlreadyExistsError; the existing record is validated (processExistingRecord, or getRecord if the error carries none) and determineResultFromIdempotencyRecord returns the stored { status: 'ok' } without calling the function."
     },
     {
-      "id": "R3",
+      "id": "R24",
       "question_id": "Q1",
       "kind": "bonus",
-      "point": "With useLocalCache, a cached COMPLETED record makes saveInProgress() throw before touching the store; a responseHook can change the response that is returned."
+      "point": "Payload validation (payloadValidationJmesPath) only takes part on the second call, when the stored record is compared with the new event."
     },
     {
-      "id": "R4",
+      "id": "R25",
       "question_id": "Q2",
       "kind": "required",
-      "point": "The payload is the whole event or the part selected by eventKeyJmesPath; it is key-sorted (deepSort), JSON-serialised, hashed (md5 by default, base64) and prefixed with the function name or keyPrefix and \"#\"."
+      "point": "search() selects 'A-1'; JSON.stringify gives the string \"A-1\" (with quotes), which is hashed (md5, base64) and prefixed: chargeFn#<hash>. The amount is not part of the key, so events for the same order share it."
     },
     {
-      "id": "R5",
+      "id": "R26",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "If orderId is missing and throwOnNoIdempotencyKey is false, the handler skips idempotency for that call (shouldSkipIdempotency) and just runs the function; if it is true, getHashedIdempotencyKey throws IdempotencyKeyError."
+    },
+    {
+      "id": "R27",
       "question_id": "Q2",
       "kind": "bonus",
-      "point": "If the selected part is missing the layer warns, or throws IdempotencyKeyError when throwOnNoIdempotencyKey is set; when not throwing, the handler skips idempotency for that call."
+      "point": "With an empty eventKeyJmesPath the whole event is hashed instead, so any difference anywhere in the event gives a new key."
     },
     {
-      "id": "R6",
+      "id": "R28",
       "question_id": "Q3",
       "kind": "required",
-      "point": "expiryTimestamp is when the record and its stored result expire, in seconds since the epoch (default one hour after saving); inProgressExpiryTimestamp is when an in-progress lock counts as abandoned, from the Lambda's remaining time, in milliseconds."
+      "point": "expiryTimestamp is 13:00:00 in seconds since the epoch; inProgressExpiryTimestamp is 12:00:30 in milliseconds since the epoch."
     },
     {
-      "id": "R7",
+      "id": "R29",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "At 12:30 getStatus() returns INPROGRESS: it only checks expiryTimestamp, not the in-progress expiry. At 13:30 it returns EXPIRED."
+    },
+    {
+      "id": "R30",
       "question_id": "Q3",
       "kind": "bonus",
-      "point": "The two use different units (seconds vs milliseconds), which is easy to get wrong; isExpired() compares Date.now() / 1000 with the seconds value."
+      "point": "Whether an abandoned in-progress record can be taken over is decided by the store's conditional write (stubs.ts), using the millisecond timestamp."
     },
     {
       "id": "R8",
@@ -130,16 +159,25 @@
       "point": "COMPLETED records are safe to serve from memory until they expire, and getFromCache() drops expired ones."
     },
     {
-      "id": "R18",
+      "id": "R31",
       "question_id": "Q7",
       "kind": "required",
-      "point": "Unit-test getRecordIdentity() / the key: the same object with keys in different orders (including nested objects) gives the same key; different values give different keys."
+      "point": "The reduce builds a new object with { ...acc, [key]: ... } for every key, copying everything added so far: sorting an object with k keys costs O(k\u00b2) copies instead of O(k).",
+      "worsening_id": "W1"
     },
     {
-      "id": "R19",
+      "id": "R32",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "Mutate one accumulator instead (acc[key] = deepSort(object[key]); return acc;), or build it with Object.fromEntries over the sorted keys.",
+      "worsening_id": "W1"
+    },
+    {
+      "id": "R33",
       "question_id": "Q7",
       "kind": "bonus",
-      "point": "Property-based tests that shuffle key order; tests with eventKeyJmesPath selecting a subset of the event."
+      "point": "It runs on every invocation, on the whole payload (or the selected part), for the key and again for payload validation, so large events with many keys pay it on every request.",
+      "worsening_id": "W1"
     },
     {
       "id": "R20",
@@ -153,6 +191,10 @@
       "kind": "bonus",
       "point": "Return a clear \"in progress, retry later\" response (for an API, 409 or 202 with Retry-After) and count these conflicts in metrics."
     }
+  ],
+  "reveal_after_bug": [
+    "Q2",
+    "Q7"
   ],
   "grader_notes": [
     "A line comment around persistence/BasePersistenceLayer.ts line 342 that explains the missing sort earns R8 to R10 even if Q4 is blank.",

@@ -4,6 +4,16 @@
   "version": 1,
   "title": "BullMQ worker: fetching, processing and job locks",
   "intro": "Excerpts from the Worker class of BullMQ, a Redis-backed job queue for Node.js, trimmed so they stand alone. A worker pulls jobs from a queue and runs a processor function on each one, several at a time. Redis is replaced by the QueueBackend interface in types.ts; read its comment for what the real backend does. Start with mainLoop in worker.ts.",
+  "brief": {
+    "purpose": "BullMQ is a job queue for Node.js backed by Redis. Producers add jobs; workers, often many processes on many machines, take jobs and run a processor function on each. It is used for work that must eventually happen, such as sending emails or charging payments, even if a worker crashes halfway through.",
+    "constraints": [
+      "Many workers on different machines share one queue, and Redis is the only thing they share.",
+      "A job must not be lost if the worker running it crashes or is killed, so somebody else has to pick that job up.",
+      "From the outside, a slow worker and a dead worker look the same; the only way to tell them apart is that a live worker keeps checking in.",
+      "Delivery is at least once: in rare cases a job runs twice, and processors are expected to cope with that.",
+      "One worker should run several jobs at once (concurrency) without sending Redis more requests than it needs."
+    ]
+  },
   "language": "typescript",
   "level": "mid",
   "estimated_minutes": 45,
@@ -36,7 +46,7 @@
     },
     {
       "path": "async-fifo-queue.ts",
-      "line_count": 196
+      "line_count": 200
     },
     {
       "path": "types.ts",
@@ -52,42 +62,134 @@
     {
       "id": "Q1",
       "dimension": "understanding",
-      "text": "Walk through what happens from mainLoop fetching a job to the job completing."
+      "text": "Three jobs, A, B and C, are waiting. Concurrency is 2 and each processor takes one second. From the moment mainLoop starts until all three are done: when does each job start, and how does C get fetched?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Follow the inner while loop in mainLoop: it keeps fetching only while a condition holds. Then look at what handleCompleted does with the value moveToCompleted returns.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q2",
       "dimension": "understanding",
-      "text": "How does mainLoop limit how many jobs run at once?"
+      "text": "Concurrency is 2 and two jobs are running. What exactly stops mainLoop from fetching a third job: which values does it compare, and what counts towards them?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Look at the conditions of the inner while loop in mainLoop, then at what numTotal() adds up in AsyncFifoQueue.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q3",
       "dimension": "understanding",
-      "text": "What is the LockManager for, and when does it renew locks?"
+      "text": "A job is passed to LockManager.trackJob() and stays tracked for 70 seconds, with lockDuration 30 000 ms (so lockRenewTime 15 000 ms). When does the LockManager extend that job's lock, and what happens if one extension fails?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Read startLockExtenderTimer(): how often the timeout fires, and which tracked jobs it picks on each tick.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q4",
       "dimension": "bugs",
-      "text": "Is there anything in how this worker processes jobs that could cause a job to run more than once? Under what conditions? Point to the lines with a code comment if you can."
+      "text": "Read the bug report. Find the cause in the code, explain how it leads to what was observed and when it happens, and point to the lines with a code comment.",
+      "report": {
+        "title": "Long-running jobs run twice and end up failed",
+        "context": "Reported by the payments team. Jobs that take longer than the lock duration (30 s in production) are processed twice and then marked failed, although the processor succeeded both times. Short jobs are fine. Reproduced locally with a 200 ms lock.",
+        "steps": [
+          "Start one worker with concurrency 2 and lockDuration 200 ms.",
+          "Add one job whose processor takes 600 ms.",
+          "Wait for the job to finish and check its state."
+        ],
+        "expected": [
+          "processor runs started for job-1: 1",
+          "times job-1 was found stalled: 0",
+          "final state of job-1: completed",
+          "errors reported by the worker: none"
+        ],
+        "observed": [
+          "processor runs started for job-1: 2",
+          "times job-1 was found stalled: 2",
+          "final state of job-1: failed (job stalled more than allowable limit)",
+          "errors reported by the worker: Missing lock for job job-1. moveToFinished"
+        ],
+        "hints": [
+          {
+            "level": 1,
+            "cost": 1,
+            "text": "The cause is in worker.ts, not in LockManager: LockManager only renews the locks of the jobs it is tracking."
+          },
+          {
+            "level": 2,
+            "cost": 2,
+            "text": "Look at processJob(): follow trackJob() and every untrackJob() call, and ask when the job stops being tracked."
+          },
+          {
+            "level": 3,
+            "cost": 3,
+            "text": "Lines 334 to 335 of worker.ts."
+          }
+        ]
+      }
     },
     {
       "id": "Q5",
       "dimension": "design",
-      "text": "Why does processJob call untrackJob in several places, including finally?"
+      "text": "Why does processJob call untrackJob in several places, including finally?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "List every way processJob can end (unrecoverable error, success, thrown error) and see where untrackJob sits on each path.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q6",
       "dimension": "design",
-      "text": "Why are DelayedError and WaitingError handled differently from other errors?"
+      "text": "Why are DelayedError and WaitingError handled differently from other errors?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Compare what handleFailed does for these errors with what it does for the others: which path calls moveToFailed?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q7",
       "dimension": "improvements",
-      "text": "How would you make duplicate processing visible in production?"
+      "text": "This section works, but it is slower than it needs to be. Explain what makes it slow and when that matters, and rewrite it.",
+      "focus": {
+        "file": "async-fifo-queue.ts",
+        "start_line": 26,
+        "end_line": 41
+      },
+      "hints": [
+        {
+          "level": 1,
+          "text": "The list class already keeps a pointer that would make this a one-step operation.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q8",
       "dimension": "improvements",
-      "text": "What would you change so a long-running processor is safe?"
+      "text": "What would you change so a long-running processor is safe?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Think about what keeps a job's lock alive, and what a processor could do so that running twice does no harm.",
+          "cost": 0.5
+        }
+      ]
     }
   ]
 }

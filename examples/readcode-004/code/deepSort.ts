@@ -17,11 +17,10 @@ import type {
 const sortObject = (object: JSONObject): JSONObject =>
   Object.keys(object)
     .sort((a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : 1))
-    .reduce((acc, key) => {
-      acc[key] = deepSort(object[key]);
-
-      return acc;
-    }, {} as JSONObject);
+    .reduce(
+      (acc, key) => ({ ...acc, [key]: deepSort(object[key]) }),
+      {} as JSONObject
+    );
 
 /**
  * Recursively sorts the keys of an object or elements of an array.

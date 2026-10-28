@@ -28,7 +28,11 @@ class LinkedList<T> {
     if (!this.length) {
       this.head = newNode;
     } else {
-      this.tail.next = newNode;
+      let last = this.head;
+      while (last.next) {
+        last = last.next;
+      }
+      last.next = newNode;
     }
 
     this.tail = newNode;

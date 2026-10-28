@@ -1,0 +1,7 @@
+target: internal/baseline/ + worsenings only
+command: node scenario.js
+output:
+first call returned: ch_1
+retry returned: ch_1
+times the card was charged: 1
+idempotency records stored: 1

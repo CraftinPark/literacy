@@ -1,0 +1,7 @@
+target: internal/baseline/
+tool: python 3.10.5 compile()
+command: compile() each file (syntax check, no bytecode written) (files: queues.py)
+file: queues.py sha256=5655ceb727cd889586b03b78c0d7b6155a1cbaf4e76675acfb9a44553adaabc7
+result: PASS
+output:
+(none)

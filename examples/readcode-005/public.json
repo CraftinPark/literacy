@@ -4,6 +4,16 @@
   "version": 1,
   "title": "Deno std: mapping with a concurrency limit",
   "intro": "pooledMap from Deno's standard library (@std/async). It runs an async function over every item of an input, with at most poolLimit calls running at once, and gives back the results as an async iterator in input order. This is the whole file, unchanged except for one line. A typical use: fetch 10,000 URLs with no more than 5 requests in flight.",
+  "brief": {
+    "purpose": "pooledMap is part of Deno's standard library (@std/async), small utilities that work in Deno, Node.js and browsers. It applies an async function to every item of an input, like Array.map, but limits how many calls run at the same time.",
+    "constraints": [
+      "The function usually calls something with limited capacity: an API with a rate limit, a database with a connection pool, a disk.",
+      "The input can be very large or never-ending (an async iterable such as a stream of lines), so it cannot be read into memory first.",
+      "Results must come out in the same order as the input, even though calls finish in any order.",
+      "If one call fails, no new calls should start, but the ones already running are allowed to finish.",
+      "It only uses web-standard APIs (promises, streams), so it runs everywhere."
+    ]
+  },
   "language": "typescript",
   "level": "junior",
   "estimated_minutes": 20,
@@ -40,37 +50,120 @@
     {
       "id": "Q1",
       "dimension": "understanding",
-      "text": "What does pooledMap return, and in what order do the results come out?"
+      "text": "Call pooledMap(5, [4, 1, 2], (n) => sleep(n * 100).then(() => n)). When does each call start and finish, and in what order, and when, are the results yielded?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "With a pool of 5 and only 3 items, no call ever waits for a slot. Results leave through the TransformStream in the order they were written.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q2",
       "dimension": "understanding",
-      "text": "What does the executing array hold, and how does an entry get removed from it?"
+      "text": "In that same call, what does the executing array hold at 0 ms, at 100 ms, at 200 ms and at 400 ms?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Each entry removes itself in the .then() that runs when its call finishes.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q3",
       "dimension": "bugs",
-      "text": "Does pooledMap keep its promise that at most poolLimit calls run at once? What happens with a large input? Point to the lines with a code comment if you can."
+      "text": "Read the bug report. Find the cause in the code, explain how it leads to what was observed and when it happens, and point to the lines with a code comment.",
+      "report": {
+        "title": "pooledMap sends bursts past our concurrency limit",
+        "context": "We call a rate-limited API through pooledMap with at most 2 requests in flight, but the provider reports bursts of many requests at once and starts rejecting us. Our results look correct. Reproduced with 10 items and a call that takes 20 ms.",
+        "steps": [
+          "Call pooledMap(2, [1, ..., 10], fetchItem), where fetchItem takes about 20 ms and returns id * 10.",
+          "Count how many fetchItem calls are running at the same time.",
+          "Collect the results."
+        ],
+        "expected": [
+          "results: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100",
+          "most calls running at the same time: 2",
+          "items started before the first result came back: 1, 2"
+        ],
+        "observed": [
+          "results: 10, 20, 30, 40, 50, 60, 70, 80, 90, 100",
+          "most calls running at the same time: 10",
+          "items started before the first result came back: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        ],
+        "hints": [
+          {
+            "level": 1,
+            "cost": 1,
+            "text": "The results are right, so the problem is not in the TransformStream; look at the part that decides when to start the next item."
+          },
+          {
+            "level": 2,
+            "cost": 2,
+            "text": "Inside the for await loop, find the check that compares executing.length with poolLimit, and ask what happens right after it."
+          },
+          {
+            "level": 3,
+            "cost": 3,
+            "text": "Line 86 of pool.ts."
+          }
+        ]
+      }
     },
     {
       "id": "Q4",
       "dimension": "design",
-      "text": "When the pool is full, why wait on Promise.race(executing) rather than Promise.all(executing)?"
+      "text": "When the pool is full, why wait on Promise.race(executing) rather than Promise.all(executing)?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "What does each of them wait for, and what is the loop waiting to be able to do next?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q5",
       "dimension": "design",
-      "text": "Why does the loop write each promise into the TransformStream straight away, instead of waiting for its result first?"
+      "text": "Why does the loop write each promise into the TransformStream straight away, instead of waiting for its result first?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "What would happen to the other calls while the loop waited for one result?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q6",
       "dimension": "improvements",
-      "text": "How would you write a test that proves no more than poolLimit calls ever run at the same time?"
+      "text": "This section works, but it does more work than it needs to every time a call finishes. Explain what it does and when that matters, and rewrite it.",
+      "focus": {
+        "file": "pool.ts",
+        "start_line": 81,
+        "end_line": 83
+      },
+      "hints": [
+        {
+          "level": 1,
+          "text": "How much of the array actually needs to change when one call finishes?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q7",
       "dimension": "improvements",
-      "text": "A caller only needs the first few results and stops reading. What happens to the rest of the work today, and what would you add so it can stop early?"
+      "text": "A caller only needs the first few results and stops reading. What happens to the rest of the work today, and what would you add so it can stop early?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Does anything in the loop notice that the reader has stopped reading?",
+          "cost": 0.5
+        }
+      ]
     }
   ]
 }

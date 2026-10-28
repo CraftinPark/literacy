@@ -45,7 +45,7 @@
     "files": [
       {
         "path": "pool.ts",
-        "sha256": "9bf06cea42f659ac9005d8d6eb0c2c319734ee6a78abb8cc2cb03e93d0788581"
+        "sha256": "bdd0feafb6094feb3fc7827d9fe66e923cc92d428e7f3eaab9cfcfdae3dceeea"
       }
     ],
     "compile_check": {
@@ -66,8 +66,27 @@
       }
     }
   ],
+  "worsenings": [
+    {
+      "id": "W1",
+      "file": "pool.ts",
+      "change": {
+        "old": "          executing.splice(executing.indexOf(e), 1)\n",
+        "new": "          executing.splice(0, executing.length, ...executing.filter((x) => x !== e))\n"
+      },
+      "line": 82
+    }
+  ],
   "review": {
     "status": "pending",
     "notes": "Built by Claude 2026-10-27 for backend.messaging.backpressure (next concept by weight in the Amazon posting, 0.5), at the easiest level on John's request. For the reviewer: (1) 117 lines, one file, origin 'real' (no trimming or stubs), so it is much shorter than the other examples; that is intended for the junior level. (2) A dropped await is easy to see once you look at that line; the difficulty is knowing that the wait is the backpressure. (3) With the bug, a mapping error can also surface as an unhandled promise rejection (the race promise is no longer awaited); the key gives bonus credit for it. (4) Licence checked by Claude from LICENSE and the file header; needs a human check."
+  },
+  "scenario": {
+    "harness": "internal/verification/scenario.ts",
+    "reproduced": true,
+    "baseline_evidence": "internal/evidence/scenario_baseline.txt",
+    "shipped_evidence": "internal/evidence/scenario_shipped.txt",
+    "worsened_evidence": "internal/evidence/scenario_worsened.txt",
+    "behaviour_preserved": true
   }
 }

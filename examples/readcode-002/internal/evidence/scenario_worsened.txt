@@ -1,0 +1,7 @@
+target: internal/baseline/ + worsenings only
+command: node scenario.js
+output:
+processor runs started for job-1: 1
+times job-1 was found stalled: 0
+final state of job-1: completed
+errors reported by the worker: none

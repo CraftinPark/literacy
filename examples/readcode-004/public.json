@@ -4,6 +4,16 @@
   "version": 1,
   "title": "Powertools for AWS Lambda: idempotent handlers",
   "intro": "Excerpts from the idempotency utility of Powertools for AWS Lambda (TypeScript). It makes a Lambda handler, or any function, safe to retry: the first call with a given payload runs and its result is stored; later calls with the same payload get the stored result instead of running again. The real persistence stores (DynamoDB, Redis) are not included; stubs.ts describes what they guarantee. Start with handle() in IdempotencyHandler.ts, then persistence/BasePersistenceLayer.ts.",
+  "brief": {
+    "purpose": "Powertools for AWS Lambda is a toolkit of utilities for Lambda functions. Its idempotency utility makes a function safe to call more than once with the same input: the first call runs and its result is stored (for example in DynamoDB); later calls with the same input get the stored result instead of running again.",
+    "constraints": [
+      "Lambda and the services that call it (API Gateway, SQS, EventBridge) retry on timeouts and errors, so the same request can arrive more than once, sometimes at the same moment.",
+      "Two invocations with the same input can run in parallel on different instances; the persistence store is the only thing they share.",
+      "A function can time out or crash part-way through, and that must not block the same input forever.",
+      "What counts as \"the same input\" is chosen by the user: the whole event, or one part of it such as an order id.",
+      "Stored results must expire, so the store does not grow forever and old results are not returned indefinitely."
+    ]
+  },
   "language": "typescript",
   "level": "mid",
   "estimated_minutes": 45,
@@ -40,7 +50,7 @@
     },
     {
       "path": "deepSort.ts",
-      "line_count": 47
+      "line_count": 46
     },
     {
       "path": "IdempotencyConfig.ts",
@@ -72,42 +82,134 @@
     {
       "id": "Q1",
       "dimension": "understanding",
-      "text": "Walk through what happens on the first call of an idempotent function, and then on a second call with the same payload after the first has completed."
+      "text": "useLocalCache is off. The function is called with event E, finishes and returns { status: 'ok' }. Five minutes later it is called again with exactly the same E. Which persistence-layer methods does each invocation call, and what does the second one return?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Follow handle() into #saveInProgressOrReturnExistingResult(): what happens when saveInProgress() finds a record already there?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q2",
       "dimension": "understanding",
-      "text": "How is the idempotency key built from the incoming event? What do eventKeyJmesPath and the key prefix contribute?"
+      "text": "eventKeyJmesPath is 'body.orderId' and AWS_LAMBDA_FUNCTION_NAME is 'chargeFn'. For the event { body: { orderId: 'A-1', amount: 5 } }, what is hashed and what does the idempotency key look like? What changes if body.orderId is missing?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Look at where getHashedIdempotencyKey() gets its payload from when eventKeyJmesPath is set, and at idempotencyKeyPrefix.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q3",
       "dimension": "understanding",
-      "text": "What do the two timestamps on an IdempotencyRecord mean, and what units is each one in?"
+      "text": "An INPROGRESS record is saved at 12:00:00 with expiresAfterSeconds 3600, while the Lambda has 30 seconds left. What are its two timestamps, in which units, and what does getStatus() return at 12:30 and at 13:30?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Compare getExpiryTimestamp() with how saveInProgress() sets inProgressExpiryTimestamp, then read isExpired() and getStatus().",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q4",
       "dimension": "bugs",
-      "text": "Could a request that the caller retries ever be processed twice even though idempotency is enabled? Under what conditions? Point to the lines with a code comment if you can."
+      "text": "Read the bug report. Find the cause in the code, explain how it leads to what was observed and when it happens, and point to the lines with a code comment.",
+      "report": {
+        "title": "Customer charged twice for one order after a retry",
+        "context": "A customer's payment request timed out and their app retried. Both calls reached our idempotent Lambda and the card was charged twice. The request bodies of both calls, as logged by the API gateway, are in the steps.",
+        "steps": [
+          "Call the idempotent handler with { orderId: 'A-1001', amountCents: 2500, currency: 'EUR' }.",
+          "Call it again with the retry's body: { currency: 'EUR', orderId: 'A-1001', amountCents: 2500 }.",
+          "Compare what each call returned, and count the charges and stored records."
+        ],
+        "expected": [
+          "first call returned: ch_1",
+          "retry returned: ch_1",
+          "times the card was charged: 1",
+          "idempotency records stored: 1"
+        ],
+        "observed": [
+          "first call returned: ch_1",
+          "retry returned: ch_2",
+          "times the card was charged: 2",
+          "idempotency records stored: 2"
+        ],
+        "hints": [
+          {
+            "level": 1,
+            "cost": 1,
+            "text": "Both calls are for the same order, yet the store ends up with two records. Find where a record's key comes from."
+          },
+          {
+            "level": 2,
+            "cost": 2,
+            "text": "Look at getHashedIdempotencyKey() in persistence/BasePersistenceLayer.ts and compare it with getHashedPayload()."
+          },
+          {
+            "level": 3,
+            "cost": 3,
+            "text": "Lines 340 to 344 of persistence/BasePersistenceLayer.ts."
+          }
+        ]
+      }
     },
     {
       "id": "Q5",
       "dimension": "design",
-      "text": "Why does the handler delete the in-progress record when the wrapped function throws, instead of saving the failure?"
+      "text": "Why does the handler delete the in-progress record when the wrapped function throws, instead of saving the failure?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "What would a retry of the same event get back if the failure were stored?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q6",
       "dimension": "design",
-      "text": "Why are records with status INPROGRESS never put in the local cache?"
+      "text": "Why are records with status INPROGRESS never put in the local cache?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Who else could change an in-progress record while this instance has a copy in its cache?",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q7",
       "dimension": "improvements",
-      "text": "How would you test that the same logical request always maps to the same idempotency key?"
+      "text": "This section works, but it gets slow for large payloads. Explain why and when that matters, and rewrite it.",
+      "focus": {
+        "file": "deepSort.ts",
+        "start_line": 17,
+        "end_line": 23
+      },
+      "hints": [
+        {
+          "level": 1,
+          "text": "Count how many times the object built so far is copied while sorting an object with 1,000 keys.",
+          "cost": 0.5
+        }
+      ]
     },
     {
       "id": "Q8",
       "dimension": "improvements",
-      "text": "Two invocations with the same key arrive at the same time. What does the second one get today, and what would you change to give callers a better outcome?"
+      "text": "Two invocations with the same key arrive at the same time. What does the second one get today, and what would you change to give callers a better outcome?",
+      "hints": [
+        {
+          "level": 1,
+          "text": "Trace what determineResultFromIdempotencyRecord() does with a record that is still INPROGRESS.",
+          "cost": 0.5
+        }
+      ]
     }
   ]
 }
