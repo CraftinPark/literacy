@@ -5,7 +5,7 @@ import addFormats from 'ajv-formats'
 import { describe, expect, it } from 'vitest'
 import { allFunctions, functionAt, parseOutline } from './outline'
 import { buildSubmission } from './submission'
-import type { Answers, PublicExercise } from './types'
+import type { Answers, PublicExercise, Reveal } from './types'
 
 const ROOT = resolve(__dirname, '../../..')
 // The C parser is tested on the archived v1 example; everything else on readcode-002.
@@ -31,6 +31,33 @@ describe('outline (TypeScript)', () => {
       ['constructor', 'start', 'extendLocks', 'startLockExtenderTimer', 'close', 'trackJob', 'untrackJob'])
     expect(functionAt(worker, 334)?.name).toBe('processJob')
     expect(functionAt(worker, 200)?.name).toBe('mainLoop')
+  })
+})
+
+describe('outline (Python)', () => {
+  const src = [
+    'import heapq',
+    '',
+    'class QueueFull(Exception):',
+    '    pass',
+    '',
+    'class Queue:',
+    '    def __init__(self, maxsize=0):',
+    '        self._maxsize = maxsize',
+    '',
+    '    async def put(self, item):',
+    '        while self.full():',
+    '            pass',
+    '',
+    'def helper():',
+    '    return 1',
+  ]
+  const sections = parseOutline(src, 'python')
+
+  it('makes classes sections, methods entries and top-level functions a Functions section', () => {
+    expect(sections.map((s) => s.title)).toEqual(['class QueueFull', 'class Queue', 'Functions'])
+    expect(sections[1].functions.map((f) => [f.name, f.line, f.end])).toEqual([['__init__', 7, 8], ['put', 10, 12]])
+    expect(sections[2].functions.map((f) => f.name)).toEqual(['helper'])
   })
 })
 
@@ -73,10 +100,17 @@ describe('submission', () => {
       { id: 'c5', type: 'bug', ranges: [{ file: f, start_line: 40, end_line: 40 }], text: '  ' },
     ],
     improvements: [{ id: 'i1', title: 'Add tests', detail: '' }],
+    hintsUsed: { Q4: 2, Q1: 0 },
+    results: { Q1: { state: 'submitted', ticked: ['R23', 'R24'] }, Q5: { state: 'conceded', ticked: [] } },
     edits: { 'types.ts': ts('types.ts').replace('export type JobProgress', '// scratch note\nexport type JobProgress') },
   }
   const sources = Object.fromEntries(pub.files.map((f) => [f.path, ts(f.path)]))
-  const sub = buildSubmission(pub, answers, sources, 'local', new Date('2026-10-13T10:30:00Z'))
+  const key = JSON.parse(readFileSync(resolve(__dirname, '../../../examples/readcode-002/key.json'), 'utf8'))
+  const reveal: Reveal = {
+    bug_questions: ['Q4'], after_bug: key.reveal_after_bug,
+    answers: Object.fromEntries(pub.questions.map((q) => [q.id, key.rubric.filter((r: { question_id: string }) => r.question_id === q.id)])),
+  }
+  const sub = buildSubmission(pub, answers, sources, 'local', reveal, new Date('2026-10-13T10:30:00Z'))
 
   it('matches submission.schema.json', () => {
     expect(validate(sub), JSON.stringify(validate.errors)).toBe(true)
@@ -90,11 +124,14 @@ describe('submission', () => {
     expect(sub.improvements.map((i) => i.title)).toEqual(['Add tests', 'factor out the retry blocks'])
     expect(sub.time_spent_minutes).toBe(30)
     expect(sub.edits.map((e) => e.file)).toEqual(['types.ts'])
+    expect(sub.hints_used).toEqual({ Q4: 2 })
     expect(sub.edits[0].patch).toContain('+// scratch note')
+    expect(sub.question_results.Q5.state).toBe('conceded')
+    expect([sub.score.required_met, sub.score.required_total]).toEqual([2, 13])
   })
 
   it('validates an empty submission too', () => {
-    const empty = buildSubmission(pub, { ...answers, answers: {}, comments: [], improvements: [], edits: {} }, sources, 'x')
+    const empty = buildSubmission(pub, { ...answers, answers: {}, comments: [], improvements: [], edits: {}, hintsUsed: {}, results: {} }, sources, 'x', reveal)
     expect(validate(empty), JSON.stringify(validate.errors)).toBe(true)
   })
 })

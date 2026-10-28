@@ -45,7 +45,7 @@ export function Header({ ex, lines, answeredCount, totalPrompts, commentCount, s
       </div>
       <ConceptTags concepts={ex.concepts} oneRow className="flex-1" />
       <div className="flex flex-none items-center gap-2.5 text-xs text-muted">
-        <span>{answeredCount} of {totalPrompts} answered · {commentCount} comment{commentCount === 1 ? '' : 's'}</span>
+        <span>{answeredCount} of {totalPrompts} done · {commentCount} comment{commentCount === 1 ? '' : 's'}</span>
         <div className="h-1.5 w-[140px] rounded-[3px] bg-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <div className="h-1.5 rounded-[3px] bg-accent" style={{ width: `${pct}%` }} />
         </div>
@@ -53,7 +53,7 @@ export function Header({ ex, lines, answeredCount, totalPrompts, commentCount, s
       <SettingsMenu />
       <Timer startedAt={startedAt} minutes={ex.estimated_minutes} />
       <button type="button" onClick={onSubmit} className="h-9 rounded-lg bg-accent px-4 font-semibold text-accent-on hover:bg-accent-hover">
-        Submit for review
+        Finish exercise
       </button>
     </header>
   )

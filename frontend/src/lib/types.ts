@@ -18,14 +18,40 @@ export interface ExerciseSummary {
   line_count: number
 }
 
+export interface Hint {
+  level: number
+  text: string
+  cost: number // points taken off the question when opened
+}
+
+/** A bug report: the starting point for a bugs question. expected/observed come from running the scenario. */
+export interface BugReport {
+  title: string
+  context: string
+  steps: string[]
+  expected: string[]
+  observed: string[]
+  hints: Hint[]
+}
+
 export interface Question {
   id: string
   dimension: Dimension
   text: string
+  report?: BugReport
+  hints?: Hint[] // other questions' nudges (bug questions keep theirs in report.hints)
+  focus?: Range // improvements: the section the question is about (original line numbers)
+}
+
+/** The story behind the code: what it is for and the constraints it was built under. */
+export interface Brief {
+  purpose: string
+  constraints: string[]
 }
 
 export interface PublicExercise extends Omit<ExerciseSummary, 'line_count'> {
   intro?: string
+  brief?: Brief
   files: { path: string; line_count: number }[]
   license: { spdx: string; attribution: string; source_url?: string }
   questions: Question[]
@@ -38,6 +64,19 @@ const LANGUAGE_LABEL: Record<string, string> = {
 export const conceptArea = (id: string) => id.split('.')[1] ?? ''
 
 export const languageLabel = (l: string) => LANGUAGE_LABEL[l] ?? l
+
+/** A question's answer once submitted (locked, then self-checked) or conceded ("Show me the answer"). */
+export interface QuestionResult {
+  state: 'submitted' | 'conceded'
+  ticked: string[] // rubric point ids the candidate says their answer covered
+}
+
+/** reveal.json: the answer checklist per question, shown after it is submitted or conceded. */
+export interface Reveal {
+  bug_questions: string[]
+  after_bug: string[] // answers that would give the bug away: shown once a bug question is done
+  answers: Record<string, { id: string; kind: 'required' | 'bonus'; point: string }[]>
+}
 
 export type CommentType = 'bug' | 'question' | 'design' | 'improvement'
 export type Severity = 'low' | 'medium' | 'high' | 'critical'
@@ -71,6 +110,8 @@ export interface Answers {
   answers: Record<string, string> // question id -> text
   comments: CodeComment[] // ranges are ORIGINAL line numbers (see lib/linediff.ts)
   edits: Record<string, string> // file path -> edited text, only for files the candidate changed
+  hintsUsed: Record<string, number> // question id -> how many of its hints were opened
+  results: Record<string, QuestionResult> // question id -> submitted (self-checked) or conceded
   improvements: Improvement[]
 }
 

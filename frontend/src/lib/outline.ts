@@ -19,7 +19,48 @@ const BANNER = /^\/\*\s*(.+?)\s*\*\/\s*$/
 const DEF_START = /^(?!typedef\b|struct\b|enum\b|union\b|#|\/\*|\s)[A-Za-z_][\w\s*]*?\b([A-Za-z_]\w*)\s*\(/
 
 export function parseOutline(lines: string[], language = 'c'): OutlineSection[] {
-  return language === 'typescript' || language === 'javascript' ? parseOutlineTS(lines) : parseOutlineC(lines)
+  if (language === 'typescript' || language === 'javascript') return parseOutlineTS(lines)
+  if (language === 'python') return parseOutlinePython(lines)
+  return parseOutlineC(lines)
+}
+
+const PY_DEF = /^(\s*)(?:async\s+)?(def|class)\s+([A-Za-z_]\w*)/
+
+/** Python: top-level classes become sections with their methods as entries; top-level functions go under "Functions". */
+function parseOutlinePython(lines: string[]): OutlineSection[] {
+  const sections: OutlineSection[] = []
+  let functions: OutlineSection | null = null
+  // A block ends before the next non-blank line indented at or below its own indent.
+  const endOf = (i: number, indent: number) => {
+    let end = i
+    for (let j = i + 1; j < lines.length; j++) {
+      if (!lines[j].trim()) continue
+      if (lines[j].length - lines[j].trimStart().length <= indent) break
+      end = j
+    }
+    return end + 1
+  }
+  let currentClass: OutlineSection | null = null
+  let classIndent = -1
+  lines.forEach((ln, i) => {
+    const m = PY_DEF.exec(ln)
+    if (!m) return
+    const indent = m[1].length
+    if (indent === 0) {
+      currentClass = null
+      if (m[2] === 'class') {
+        currentClass = { title: `class ${m[3]}`, line: i + 1, functions: [] }
+        classIndent = 0
+        sections.push(currentClass)
+      } else {
+        if (!functions) { functions = { title: 'Functions', line: i + 1, functions: [] }; sections.push(functions) }
+        functions.functions.push({ name: m[3], line: i + 1, end: endOf(i, 0) })
+      }
+    } else if (currentClass && m[2] === 'def' && indent > classIndent && indent <= 4) {
+      currentClass.functions.push({ name: m[3], line: i + 1, end: endOf(i, indent) })
+    }
+  })
+  return sections
 }
 
 function parseOutlineC(lines: string[]): OutlineSection[] {

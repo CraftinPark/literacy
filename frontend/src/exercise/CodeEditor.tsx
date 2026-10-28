@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { editorTheme, languageOf, monaco, pathOf, uriOf } from '../lib/monaco'
 import { currentTheme, onThemeChange } from '../lib/theme'
 
-export type LineMark = { start: number; end: number; kind: 'draft' | 'saved' }
+export type LineMark = { start: number; end: number; kind: 'draft' | 'saved' | 'focus' }
 export interface Insert { key: string; afterLine: number; node: ReactNode }
 
 export interface CodeEditorHandle {

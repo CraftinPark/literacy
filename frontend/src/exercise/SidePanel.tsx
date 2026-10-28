@@ -2,8 +2,12 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import type { OutlineFunction } from '../lib/outline'
 import { COMMENT_HUE, HUE_BG, HUE_STRIPE, HUE_TEXT } from '../lib/hues'
+import { BugReportCard } from './BugReport'
+import { AnswerPanel, HintList } from './QuestionHelp'
+import { ContextBrief } from './ContextBrief'
 import type { Hue } from '../lib/hues'
-import type { CodeComment, Dimension, Improvement, Question } from '../lib/types'
+import type { QuestionScore } from '../lib/score'
+import type { Brief, CodeComment, Dimension, Improvement, Question, QuestionResult, Range, Reveal } from '../lib/types'
 import { LABEL, formatRanges } from '../lib/types'
 
 export type Tab = Hue
@@ -31,29 +35,44 @@ function PromptText({ text, fnNames }: { text: string; fnNames: string[] }) {
   )
 }
 
-function CheckIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"
-      strokeLinejoin="round" role="img" aria-label="Answered" className="mt-[3px] flex-none text-ok">
-      <path d="M5 12.5l4.5 4.5L19 7" />
-    </svg>
-  )
-}
-
 function SectionLabel({ hue, children }: { hue: Hue; children: ReactNode }) {
   return <div className={`text-[11px] font-semibold tracking-[0.08em] ${HUE_TEXT[hue]}`}>{children}</div>
 }
 
-/** Questions as numbered paragraphs; the open one shows its answer field. Numbers take the tab's hue. */
-function PromptList({ items, answers, onAnswer, functions, onJump, hue }: {
+/** What each question card needs to submit, concede, take hints and show its answer. */
+export interface QuestionFlow {
+  reveal: Reveal
+  results: Record<string, QuestionResult>
+  scores: Record<string, QuestionScore>
+  hintsUsed: Record<string, number>
+  canReveal: (qid: string) => boolean
+  hasBugComments: boolean
+  onOpenHint: (qid: string) => void
+  onSubmit: (qid: string) => void
+  onConcede: (qid: string) => void
+  onTick: (qid: string, pointId: string) => void
+}
+
+const STATE_TONE: Record<string, string> = {
+  solved: 'text-ok', partly: 'text-sec-bugs', conceded: 'text-muted', none: 'text-muted',
+}
+
+/**
+ * Questions as numbered paragraphs; the open one shows its answer field, hint, and the two ways to finish
+ * it: submit (locks the answer, then self-check against its points) or show the answer (0 points).
+ */
+function PromptList({ items, answers, onAnswer, functions, onJump, onJumpToRange, hue, flow }: {
   items: Question[]
   answers: Record<string, string>
   onAnswer: (id: string, text: string) => void
   functions: FileFunction[]
   onJump: JumpFn
+  onJumpToRange: (r: Range) => void
   hue: Hue
+  flow: QuestionFlow
 }) {
-  const [active, setActive] = useState<string | null>(() => items.find((q) => !answers[q.id]?.trim())?.id ?? null)
+  const [active, setActive] = useState<string | null>(() => items.find((q) => !flow.results[q.id])?.id ?? null)
+  const [conceding, setConceding] = useState<string | null>(null)
   // Plain-word method names (run, close, start) would match ordinary English, so only
   // camelCase or snake_case names, or any name written as a call, count as code.
   const isCode = (name: string, text: string) => /[A-Z_]/.test(name) || new RegExp(`\\b${name}\\(`).test(text)
@@ -61,12 +80,17 @@ function PromptList({ items, answers, onAnswer, functions, onJump, hue }: {
     <ol className="flex flex-col gap-6">
       {items.map((q, i) => {
         const answer = answers[q.id] ?? ''
-        const done = answer.trim().length > 0
+        const result = flow.results[q.id]
+        const score = flow.scores[q.id]
         const open = active === q.id
         const names = [...new Set(functions.filter((f) => isCode(f.name, q.text)).map((f) => f.name))]
         const mentioned = functions.find((f) => names.includes(f.name) && new RegExp(`\\b${f.name}\\b`).test(q.text))
-        const number = done && !open
-          ? <CheckIcon />
+        const canSubmit = answer.trim().length > 0 || (q.dimension === 'bugs' && flow.hasBugComments)
+        const tone = !result ? 'none' : result.state === 'conceded' ? 'conceded' : score.requiredMet === score.requiredTotal ? 'solved' : score.requiredMet > 0 ? 'partly' : 'none'
+        const number = result
+          ? <span className={`w-6 flex-none text-[15px] font-semibold leading-[1.45] ${STATE_TONE[tone]}`} aria-label={score.label}>
+              {result.state === 'conceded' ? '–' : tone === 'solved' ? '✓' : i + 1}
+            </span>
           : <span className={`w-6 flex-none font-mono text-[15px] font-semibold leading-[1.45] ${HUE_TEXT[hue]}`}>{i + 1}</span>
         if (open) {
           return (
@@ -75,20 +99,57 @@ function PromptList({ items, answers, onAnswer, functions, onJump, hue }: {
                 {number}
                 <div className="text-[15.5px] font-semibold leading-[1.45] text-ink"><PromptText text={q.text} fnNames={names} /></div>
               </div>
-              <div className="ml-9 flex flex-col gap-2">
-                {mentioned && (
+              <div className="ml-9 flex flex-col gap-2.5">
+                {q.focus && (
+                  <button type="button" onClick={() => onJumpToRange(q.focus!)}
+                    className="self-start text-[13px] font-medium text-accent-text hover:underline">
+                    Go to the section · {q.focus.file}, lines {q.focus.start_line}–{q.focus.end_line} →
+                  </button>
+                )}
+                {!q.focus && mentioned && (
                   <button type="button" onClick={() => onJump(mentioned.file, mentioned.line)}
                     className="self-start text-[13px] font-medium text-accent-text hover:underline">
                     Jump to {mentioned.name} · line {mentioned.line} →
                   </button>
                 )}
-                <label htmlFor={`ans-${q.id}`} className="sr-only">Your answer</label>
-                <textarea id={`ans-${q.id}`} autoFocus value={answer} onChange={(e) => onAnswer(q.id, e.target.value)}
-                  placeholder="Your answer" className={`h-[150px] resize-y ${FIELD}`} />
-                <div className="flex justify-between text-xs text-muted">
-                  <span>{wordCount(answer)} words · Autosaved</span>
-                  <button type="button" className="font-medium text-accent-text hover:underline" onClick={() => setActive(null)}>Done</button>
-                </div>
+                {result?.state !== 'conceded' && (
+                  <>
+                    <label htmlFor={`ans-${q.id}`} className="sr-only">Your answer</label>
+                    <textarea id={`ans-${q.id}`} autoFocus={!result} value={answer} readOnly={!!result}
+                      onChange={(e) => onAnswer(q.id, e.target.value)}
+                      placeholder={q.dimension === 'bugs' ? 'Your answer (your bug comments in the code count too)' : 'Your answer'}
+                      className={`h-[140px] resize-y ${FIELD} ${result ? 'opacity-70' : ''}`} />
+                  </>
+                )}
+                {!result && q.hints && (
+                  <HintList hints={q.hints} used={flow.hintsUsed[q.id] ?? 0} onOpen={() => flow.onOpenHint(q.id)} />
+                )}
+                {!result && (
+                  <div className="flex flex-wrap items-center gap-2 text-[13px]">
+                    <button type="button" disabled={!canSubmit} onClick={() => flow.onSubmit(q.id)}
+                      className="h-8 rounded-md bg-accent px-3 font-semibold text-accent-on hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40">
+                      Submit answer
+                    </button>
+                    {conceding === q.id ? (
+                      <>
+                        <span className="text-muted">You get no points for this question.</span>
+                        <button type="button" onClick={() => { setConceding(null); flow.onConcede(q.id) }}
+                          className="rounded-md bg-chip px-2.5 py-1 font-medium text-ink hover:bg-track">Show it</button>
+                        <button type="button" onClick={() => setConceding(null)} className="px-1 text-muted hover:text-ink">Keep trying</button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => setConceding(q.id)} className="px-2 font-medium text-muted hover:text-ink">
+                        Show me the answer
+                      </button>
+                    )}
+                    <span className="ml-auto text-xs text-muted">{wordCount(answer)} words</span>
+                  </div>
+                )}
+                {result && (
+                  <AnswerPanel points={flow.reveal.answers[q.id] ?? []} result={result} score={score}
+                    revealed={flow.canReveal(q.id)} onTick={(pid) => flow.onTick(q.id, pid)} />
+                )}
+                <button type="button" className="self-end text-xs font-medium text-accent-text hover:underline" onClick={() => setActive(null)}>Close</button>
               </div>
             </li>
           )
@@ -102,9 +163,9 @@ function PromptList({ items, answers, onAnswer, functions, onJump, hue }: {
                   <div className="text-[15.5px] font-medium leading-[1.45] text-ink/85 group-hover:text-ink">
                     <PromptText text={q.text} fnNames={names} />
                   </div>
-                  {done
-                    ? <div className="mt-1 line-clamp-2 text-[13.5px] leading-[1.5] text-muted">{answer}</div>
-                    : <div className="mt-0.5 text-[13px] text-muted">Not answered</div>}
+                  <div className={`mt-0.5 text-[13px] ${result ? STATE_TONE[tone] : 'text-muted'}`}>
+                    {result ? `${score.label} · ${score.points} of ${score.requiredTotal}` : answer.trim() ? 'Answered, not submitted' : 'Not answered'}
+                  </div>
                 </div>
               </div>
             </button>
@@ -179,6 +240,7 @@ interface Props {
   tab: Tab
   onTab: (t: Tab) => void
   intro?: string
+  brief?: Brief
   questions: Question[]
   answers: Record<string, string>
   comments: CodeComment[]
@@ -187,14 +249,16 @@ interface Props {
   multiFile: boolean
   onAnswer: (id: string, text: string) => void
   onImprovements: (items: Improvement[]) => void
+  flow: QuestionFlow
   onJump: JumpFn
   onJumpToComment: (c: CodeComment) => void
+  onJumpToRange: (r: Range) => void
   onReview: () => void
 }
 
 export function SidePanel(p: Props) {
   const of = (t: Tab) => p.questions.filter((q) => q.dimension === DIMENSION[t])
-  const answered = (t: Tab) => of(t).filter((q) => p.answers[q.id]?.trim()).length
+  const answered = (t: Tab) => of(t).filter((q) => p.flow.results[q.id]).length
   const bugs = p.comments.filter((c) => c.type === 'bug')
   const others = p.comments.filter((c) => c.type !== 'bug')
   const improveCount = p.improvements.length + p.comments.filter((c) => c.type === 'improvement').length
@@ -207,7 +271,8 @@ export function SidePanel(p: Props) {
   const jumpTo = p.onJumpToComment
   const next = TABS[TABS.indexOf(p.tab) + 1]
   const prompts = (t: Tab) => of(t).length > 0 && (
-    <PromptList key={t} items={of(t)} answers={p.answers} functions={p.functions} onJump={p.onJump} onAnswer={p.onAnswer} hue={t} />
+    <PromptList key={t} items={of(t)} answers={p.answers} functions={p.functions} onJump={p.onJump} onJumpToRange={p.onJumpToRange}
+      onAnswer={p.onAnswer} hue={t} flow={p.flow} />
   )
 
   return (
@@ -228,6 +293,7 @@ export function SidePanel(p: Props) {
         {p.tab === 'understand' && (
           <>
             {p.intro && <p className="text-[14px] leading-[1.6] text-ink/75">{p.intro}</p>}
+            {p.brief && <ContextBrief brief={p.brief} />}
             <Heading title="Understand the code" sub="Answer in your own words. You can jump to the code at any time." />
             {prompts('understand')}
           </>
@@ -235,6 +301,10 @@ export function SidePanel(p: Props) {
         {p.tab === 'bugs' && (
           <>
             <Heading title="Find bugs" sub="Answer below, and anchor each bug you find to the lines involved with a code comment." />
+            {of('bugs').map((q) => q.report && (
+              <BugReportCard key={q.id} report={q.report} hintsUsed={p.flow.hintsUsed[q.id] ?? 0}
+                onOpenHint={() => p.flow.results[q.id] ? undefined : p.flow.onOpenHint(q.id)} />
+            ))}
             {prompts('bugs')}
             <div className="flex flex-col gap-3">
               <SectionLabel hue="bugs">BUGS YOU FOUND</SectionLabel>
@@ -252,6 +322,7 @@ export function SidePanel(p: Props) {
         {p.tab === 'design' && (
           <>
             <Heading title="Discuss the design" sub="There is rarely one right answer. Explain the trade-offs." />
+            {p.brief && <ContextBrief brief={p.brief} collapsible />}
             {prompts('design')}
           </>
         )}
@@ -280,7 +351,7 @@ export function SidePanel(p: Props) {
           </button>
         ) : (
           <button type="button" onClick={p.onReview} className="h-[34px] rounded-lg bg-accent px-3.5 font-semibold text-accent-on hover:bg-accent-hover">
-            Review and submit →
+            Finish exercise →
           </button>
         )}
       </div>

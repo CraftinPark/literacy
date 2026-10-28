@@ -4,7 +4,7 @@ import type { Answers } from './types'
 const key = (id: string, version: number) => `readcode:answers:${id}:v${version}`
 
 export function emptyAnswers(): Answers {
-  return { startedAt: Date.now(), answers: {}, comments: [], improvements: [], edits: {} }
+  return { startedAt: Date.now(), answers: {}, comments: [], improvements: [], edits: {}, hintsUsed: {}, results: {} }
 }
 
 export function loadAnswers(id: string, version: number): Answers | null {
@@ -34,5 +34,5 @@ export function clearAnswers(id: string, version: number) {
 
 export function hasProgress(id: string, version: number): boolean {
   const a = loadAnswers(id, version)
-  return !!a && (a.comments.length > 0 || Object.values(a.answers).some((v) => v.trim()) || a.improvements.length > 0 || Object.keys(a.edits).length > 0)
+  return !!a && (a.comments.length > 0 || Object.values(a.answers).some((v) => v.trim()) || a.improvements.length > 0 || Object.keys(a.edits).length > 0 || Object.keys(a.results ?? {}).length > 0)
 }

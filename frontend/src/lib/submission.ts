@@ -1,7 +1,8 @@
 // Turns the candidate's work into a submission (schemas/submission.schema.json),
 // the file the grader reads.
 import { unifiedDiff } from './linediff'
-import type { Answers, PublicExercise, Range } from './types'
+import { scoreExercise } from './score'
+import type { Answers, PublicExercise, QuestionResult, Range, Reveal } from './types'
 
 export interface Submission {
   schema_version: 2
@@ -23,6 +24,9 @@ export interface Submission {
   improvements: { title: string; detail?: string; locations?: Range[] }[]
   notes: { id: string; type: 'question' | 'design'; locations: Range[]; text: string }[]
   edits: { file: string; patch: string }[]
+  hints_used: Record<string, number>
+  question_results: Record<string, QuestionResult>
+  score: { percent: number; required_met: number; required_total: number; bonus_met: number; bonus_total: number; hint_cost: number }
 }
 
 const nonEmpty = (rec: Record<string, string>) =>
@@ -34,7 +38,8 @@ function firstLine(text: string, max = 80) {
 }
 
 /** `sources` are the files as shipped; edits become unified diffs against them (ungraded scratch work). */
-export function buildSubmission(ex: PublicExercise, a: Answers, sources: Record<string, string>, candidateId: string, now = new Date()): Submission {
+export function buildSubmission(ex: PublicExercise, a: Answers, sources: Record<string, string>, candidateId: string, reveal: Reveal, now = new Date()): Submission {
+  const s = scoreExercise(ex, reveal, a)
   const comments = a.comments.filter((c) => c.text.trim())
   return {
     schema_version: 2,
@@ -69,5 +74,9 @@ export function buildSubmission(ex: PublicExercise, a: Answers, sources: Record<
     edits: ex.files
       .map((f) => ({ file: f.path, patch: f.path in a.edits ? unifiedDiff(sources[f.path], a.edits[f.path], f.path) : '' }))
       .filter((e) => e.patch),
+    hints_used: Object.fromEntries(Object.entries(a.hintsUsed).filter(([, n]) => n > 0)),
+    question_results: a.results,
+    score: { percent: s.percent, required_met: s.requiredMet, required_total: s.requiredTotal, bonus_met: s.bonusMet,
+      bonus_total: s.bonusTotal, hint_cost: s.hintCost },
   }
 }

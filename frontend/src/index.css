@@ -25,3 +25,5 @@ body {
 .rc-line-draft { background: rgb(var(--c-bug) / 0.16); }
 .rc-gutter-saved { box-shadow: inset 3px 0 0 rgb(var(--c-code-note)); }
 .rc-gutter-draft { box-shadow: inset 3px 0 0 rgb(var(--c-bug)); }
+.rc-line-focus { background: rgb(var(--c-sec-improve) / 0.10); }
+.rc-gutter-focus { box-shadow: inset 3px 0 0 rgb(var(--c-sec-improve)); }
