@@ -129,7 +129,7 @@
     "questions": [
       {
         "id": "Q1",
-        "text": "`payments.charge()` is called by `api.create_charge`, `webhooks.handle_event` and `renewals.run_renewals`. Where does the idempotency-key check have to happen so that none of them can charge the same key twice?",
+        "text": "Three different functions call `payments.charge()` with the same idempotency key. Where is the one place you must check to prevent any of them from charging twice?",
         "options": [
           {
             "id": "a",
@@ -151,7 +151,7 @@
       },
       {
         "id": "Q2",
-        "text": "The provider sends an event again while the first delivery is still being processed, so two threads call `charge()` with the same key at the same moment. The check is `charge_by_key()`, then creating the charge if nothing was found. What can happen?",
+        "text": "Two threads both call `charge()` with the same key at the exact same moment. Both run `charge_by_key()` and find nothing, then both try to create a new charge. Without a lock, what goes wrong?",
         "options": [
           {
             "id": "a",
@@ -173,7 +173,7 @@
       },
       {
         "id": "Q3",
-        "text": "Someone fixes ticket B by adding only `charge.refunded_cents += amount_cents` after a successful refund in `refunds.refund()`. The provided refund tests still fail. Why?",
+        "text": "A programmer tries to fix ticket B by just adding `charge.refunded_cents += amount_cents` after refunding. But the tests still fail. Why doesn't this simple fix work?",
         "options": [
           {
             "id": "a",
@@ -195,7 +195,7 @@
       },
       {
         "id": "Q4",
-        "text": "Why does `refunds.refund()` hold `repo.locked(f\"charge:{charge_id}\")` from reading the charge until after saving it?",
+        "text": "Why must we lock the charge before reading it and keep the lock until after saving it back?",
         "options": [
           {
             "id": "a",
@@ -217,7 +217,7 @@
       },
       {
         "id": "Q5",
-        "text": "A $100.00 charge has had two refunds: $40.00, which succeeded, then $50.00, which the processor declined. With ticket B fixed correctly, what happens when a $60.00 refund is requested next?",
+        "text": "A $100 charge was successfully refunded $40, then a $50 refund was declined. If someone tries to refund $60 next (after fixing ticket B), what happens?",
         "options": [
           {
             "id": "a",
