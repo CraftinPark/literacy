@@ -88,6 +88,77 @@ function Section({ title, open, onToggle, children }: { title: ReactNode; open: 
   )
 }
 
+interface TreeNode {
+  name: string
+  path: string
+  file?: FileEntry
+  children: TreeNode[]
+}
+
+/** Folders first (alphabetical), then files in the exercise's own order, which puts the starting file first. */
+function buildTree(files: FileEntry[]): TreeNode[] {
+  const root: TreeNode = { name: '', path: '', children: [] }
+  for (const f of files) {
+    const parts = f.path.split('/')
+    let node = root
+    parts.slice(0, -1).forEach((part, i) => {
+      const path = parts.slice(0, i + 1).join('/')
+      let dir = node.children.find((c) => !c.file && c.name === part)
+      if (!dir) { dir = { name: part, path, children: [] }; node.children.push(dir) }
+      node = dir
+    })
+    node.children.push({ name: parts[parts.length - 1], path: f.path, file: f, children: [] })
+  }
+  const order = (n: TreeNode): TreeNode => ({
+    ...n,
+    children: [...n.children.filter((c) => !c.file).sort((a, b) => a.name.localeCompare(b.name)).map(order),
+      ...n.children.filter((c) => c.file)],
+  })
+  return order(root).children
+}
+
+const indent = (depth: number) => ({ paddingLeft: `${8 + depth * 12}px` })
+
+function FileTree({ nodes, depth, activeFile, onOpenFile, closed, onToggle }: {
+  nodes: TreeNode[]
+  depth: number
+  activeFile: string
+  onOpenFile: (path: string) => void
+  closed: Set<string>
+  onToggle: (dir: string) => void
+}) {
+  return (
+    <>
+      {nodes.map((n) => {
+        if (!n.file) {
+          const open = !closed.has(n.path)
+          return (
+            <div key={n.path} className="flex flex-col">
+              <button type="button" onClick={() => onToggle(n.path)} aria-expanded={open} style={indent(depth)}
+                className={`${ROW} ${rowState(false)}`}>
+                <Chevron open={open} />
+                <span className="truncate">{n.name}</span>
+              </button>
+              {open && <FileTree nodes={n.children} depth={depth + 1} activeFile={activeFile} onOpenFile={onOpenFile} closed={closed} onToggle={onToggle} />}
+            </div>
+          )
+        }
+        const f = n.file
+        const active = f.path === activeFile
+        return (
+          <button key={f.path} role="tab" type="button" aria-selected={active} onClick={() => onOpenFile(f.path)}
+            title={`${f.path} · ${f.lines} lines`} style={indent(depth + 1)} className={`${ROW} ${rowState(active)}`}>
+            <FileIcon path={f.path} />
+            <span className={`min-w-0 flex-1 truncate ${f.edited ? 'text-sec-bugs' : ''}`}>{n.name}</span>
+            {f.comments > 0 && <Count n={f.comments} />}
+            {f.edited && <span title="Edited" aria-label="edited" className="h-1.5 w-1.5 flex-none rounded-full bg-sec-bugs" />}
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
 const ROW = 'flex h-[22px] w-full items-center gap-1.5 pr-2 text-left text-[13px] leading-none'
 const rowState = (active: boolean) =>
   active ? 'bg-code-select text-white shadow-[inset_1px_0_0_theme(colors.code.note)]' : 'text-code-text hover:bg-code-hover'
@@ -97,6 +168,9 @@ export function Sidebar(p: Props) {
   const [rootOpen, setRootOpen] = useState(true)
   const [outlineOpen, setOutlineOpen] = useState(true)
   const [closed, setClosed] = useState<Set<number>>(new Set())
+  const [closedDirs, setClosedDirs] = useState<Set<string>>(new Set())
+  const toggleDir = (dir: string) =>
+    setClosedDirs((c) => { const n = new Set(c); n.has(dir) ? n.delete(dir) : n.add(dir); return n })
   const toggleSection = (line: number) =>
     setClosed((c) => { const n = new Set(c); n.has(line) ? n.delete(line) : n.add(line); return n })
 
@@ -111,19 +185,9 @@ export function Sidebar(p: Props) {
           <span className="truncate">{p.rootName}</span>
         </button>
         {rootOpen && (
-          <div role="tablist" aria-label="Files" aria-orientation="vertical" className="relative flex flex-col">
-                        {p.files.map((f) => {
-              const active = f.path === p.activeFile
-              return (
-                <button key={f.path} role="tab" type="button" aria-selected={active} onClick={() => p.onOpenFile(f.path)}
-                  title={`${f.path} · ${f.lines} lines`} className={`${ROW} pl-[26px] ${rowState(active)}`}>
-                  <FileIcon path={f.path} />
-                  <span className={`min-w-0 flex-1 truncate ${f.edited ? 'text-sec-bugs' : ''}`}>{f.path}</span>
-                  {f.comments > 0 && <Count n={f.comments} />}
-                  {f.edited && <span title="Edited" aria-label="edited" className="h-1.5 w-1.5 flex-none rounded-full bg-sec-bugs" />}
-                </button>
-              )
-            })}
+          <div role="tablist" aria-label="Files" aria-orientation="vertical" className="flex flex-col">
+            <FileTree nodes={buildTree(p.files)} depth={1} activeFile={p.activeFile} onOpenFile={p.onOpenFile}
+              closed={closedDirs} onToggle={toggleDir} />
           </div>
         )}
       </Section>
