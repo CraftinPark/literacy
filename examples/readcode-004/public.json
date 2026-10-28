@@ -1,0 +1,113 @@
+{
+  "schema_version": 2,
+  "id": "readcode-004",
+  "version": 1,
+  "title": "Powertools for AWS Lambda: idempotent handlers",
+  "intro": "Excerpts from the idempotency utility of Powertools for AWS Lambda (TypeScript). It makes a Lambda handler, or any function, safe to retry: the first call with a given payload runs and its result is stored; later calls with the same payload get the stored result instead of running again. The real persistence stores (DynamoDB, Redis) are not included; stubs.ts describes what they guarantee. Start with handle() in IdempotencyHandler.ts, then persistence/BasePersistenceLayer.ts.",
+  "language": "typescript",
+  "level": "mid",
+  "estimated_minutes": 45,
+  "concepts": [
+    {
+      "id": "backend.api.idempotency",
+      "name": "Idempotency"
+    },
+    {
+      "id": "backend.messaging.deduplication",
+      "name": "Deduplication"
+    },
+    {
+      "id": "backend.caching.ttls-expiry",
+      "name": "TTLs and expiry"
+    },
+    {
+      "id": "backend.concurrency.race-conditions",
+      "name": "Race conditions"
+    }
+  ],
+  "files": [
+    {
+      "path": "IdempotencyHandler.ts",
+      "line_count": 345
+    },
+    {
+      "path": "persistence/BasePersistenceLayer.ts",
+      "line_count": 426
+    },
+    {
+      "path": "persistence/IdempotencyRecord.ts",
+      "line_count": 88
+    },
+    {
+      "path": "deepSort.ts",
+      "line_count": 47
+    },
+    {
+      "path": "IdempotencyConfig.ts",
+      "line_count": 99
+    },
+    {
+      "path": "constants.ts",
+      "line_count": 43
+    },
+    {
+      "path": "errors.ts",
+      "line_count": 115
+    },
+    {
+      "path": "types.ts",
+      "line_count": 108
+    },
+    {
+      "path": "stubs.ts",
+      "line_count": 88
+    }
+  ],
+  "license": {
+    "spdx": "MIT-0",
+    "attribution": "Adapted from Powertools for AWS Lambda (TypeScript), Copyright 2021 Amazon.com, Inc. or its affiliates, MIT No Attribution licence. Trimmed and stubbed for this exercise.",
+    "source_url": "https://github.com/aws-powertools/powertools-lambda-typescript/tree/219d973dc30e6a06607b65e7ecc357a3b5627973/packages/idempotency"
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "dimension": "understanding",
+      "text": "Walk through what happens on the first call of an idempotent function, and then on a second call with the same payload after the first has completed."
+    },
+    {
+      "id": "Q2",
+      "dimension": "understanding",
+      "text": "How is the idempotency key built from the incoming event? What do eventKeyJmesPath and the key prefix contribute?"
+    },
+    {
+      "id": "Q3",
+      "dimension": "understanding",
+      "text": "What do the two timestamps on an IdempotencyRecord mean, and what units is each one in?"
+    },
+    {
+      "id": "Q4",
+      "dimension": "bugs",
+      "text": "Could a request that the caller retries ever be processed twice even though idempotency is enabled? Under what conditions? Point to the lines with a code comment if you can."
+    },
+    {
+      "id": "Q5",
+      "dimension": "design",
+      "text": "Why does the handler delete the in-progress record when the wrapped function throws, instead of saving the failure?"
+    },
+    {
+      "id": "Q6",
+      "dimension": "design",
+      "text": "Why are records with status INPROGRESS never put in the local cache?"
+    },
+    {
+      "id": "Q7",
+      "dimension": "improvements",
+      "text": "How would you test that the same logical request always maps to the same idempotency key?"
+    },
+    {
+      "id": "Q8",
+      "dimension": "improvements",
+      "text": "Two invocations with the same key arrive at the same time. What does the second one get today, and what would you change to give callers a better outcome?"
+    }
+  ]
+}

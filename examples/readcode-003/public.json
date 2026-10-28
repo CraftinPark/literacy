@@ -1,0 +1,109 @@
+{
+  "schema_version": 2,
+  "id": "readcode-003",
+  "version": 1,
+  "title": "cockatiel: retrying with exponential backoff",
+  "intro": "Excerpts from cockatiel, a resilience library for JavaScript in the style of .NET's Polly. A RetryPolicy runs a function and, when it fails in a way the policy handles, waits and runs it again, with the wait decided by a pluggable backoff. Start with execute() in RetryPolicy.ts; the backoff strategies are in backoff/.",
+  "language": "typescript",
+  "level": "mid",
+  "estimated_minutes": 40,
+  "concepts": [
+    {
+      "id": "backend.resilience.retries-backoff",
+      "name": "Retries and backoff"
+    },
+    {
+      "id": "backend.resources.context-cancellation",
+      "name": "Context cancellation"
+    },
+    {
+      "id": "backend.errors.error-propagation",
+      "name": "Error propagation"
+    }
+  ],
+  "files": [
+    {
+      "path": "RetryPolicy.ts",
+      "line_count": 155
+    },
+    {
+      "path": "backoff/ExponentialBackoff.ts",
+      "line_count": 71
+    },
+    {
+      "path": "backoff/ExponentialBackoffGenerators.ts",
+      "line_count": 64
+    },
+    {
+      "path": "backoff/ConstantBackoff.ts",
+      "line_count": 22
+    },
+    {
+      "path": "backoff/Backoff.ts",
+      "line_count": 23
+    },
+    {
+      "path": "common/Executor.ts",
+      "line_count": 78
+    },
+    {
+      "path": "Policy.ts",
+      "line_count": 227
+    },
+    {
+      "path": "common/Event.ts",
+      "line_count": 143
+    },
+    {
+      "path": "common/abort.ts",
+      "line_count": 33
+    }
+  ],
+  "license": {
+    "spdx": "MIT",
+    "attribution": "Adapted from cockatiel (c) 2019 Connor Peet, MIT License. Trimmed for this exercise.",
+    "source_url": "https://github.com/connor4312/cockatiel/tree/17a8b0224b63110da4e67cef3e888d9ba58bdd0f"
+  },
+  "questions": [
+    {
+      "id": "Q1",
+      "dimension": "understanding",
+      "text": "Walk through what execute() does when the function fails twice with a handled error and then succeeds, using an ExponentialBackoff."
+    },
+    {
+      "id": "Q2",
+      "dimension": "understanding",
+      "text": "How does the policy decide whether a failure should be retried at all? What happens to failures it does not handle?"
+    },
+    {
+      "id": "Q3",
+      "dimension": "understanding",
+      "text": "What does decorrelatedJitterGenerator return on each call, and what state does it carry from one call to the next?"
+    },
+    {
+      "id": "Q4",
+      "dimension": "bugs",
+      "text": "Is there anything in how this policy retries that could make an outage of the called service worse? Under what conditions? Point to the lines with a code comment if you can."
+    },
+    {
+      "id": "Q5",
+      "dimension": "design",
+      "text": "Why is a backoff an immutable object whose next() returns a new backoff, rather than a counter kept inside RetryPolicy?"
+    },
+    {
+      "id": "Q6",
+      "dimension": "design",
+      "text": "Why does execute() check signal.aborted both before and after waiting for the delay?"
+    },
+    {
+      "id": "Q7",
+      "dimension": "improvements",
+      "text": "How would you make it visible in production that a service is being retried too often or too quickly?"
+    },
+    {
+      "id": "Q8",
+      "dimension": "improvements",
+      "text": "What limits would you add so that retries cannot overwhelm a service that is already struggling?"
+    }
+  ]
+}

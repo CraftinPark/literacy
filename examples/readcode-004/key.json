@@ -1,0 +1,161 @@
+{
+  "schema_version": 2,
+  "id": "readcode-004",
+  "version": 1,
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Idempotency key depends on the order of the payload's keys",
+      "pattern": "idempotency-key-not-canonicalized",
+      "locations": [
+        {
+          "file": "persistence/BasePersistenceLayer.ts",
+          "function": "getHashedIdempotencyKey",
+          "start_line": 340,
+          "end_line": 344
+        }
+      ],
+      "description": "getHashedIdempotencyKey() hashes JSON.stringify(payload) directly instead of JSON.stringify(deepSort(payload)). JSON.stringify keeps the object's own key order, so two payloads with the same content but keys in a different order produce different hashes and therefore different idempotency keys. getHashedPayload() still sorts, which makes the omission easy to miss.",
+      "runtime_failure": "A retry of the same logical request whose JSON arrives with its keys in a different order (a different client or SDK version, a JSON library that orders keys differently, a proxy or queue that re-serialises the body, or code that builds the object field by field in another order) gets a new idempotency key. saveInProgress finds no record for that key, so the function runs again: duplicate side effects such as a second charge, a second order or a second message published.",
+      "conditions": "Only when the key order differs between attempts. Byte-identical retries (the usual case in tests, and for a single client retrying its own request) still produce the same key, so the bug stays hidden until two serialisations meet. With eventKeyJmesPath selecting a single scalar value (for example an order id) the order does not matter and the bug cannot occur.",
+      "fix": "Hash the canonical form again: JSON.stringify(deepSort(payload)), as getHashedPayload() does."
+    }
+  ],
+  "rubric": [
+    {
+      "id": "R1",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "First call: handle() resolves the record identity, saveInProgress() writes an INPROGRESS record (a conditional write in the real store), the function runs, and saveSuccess() updates the record to COMPLETED with the response."
+    },
+    {
+      "id": "R2",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "Second call: saveInProgress() fails with IdempotencyItemAlreadyExistsError; the existing record is validated (processExistingRecord or getRecord) and determineResultFromIdempotencyRecord() returns the stored response without running the function."
+    },
+    {
+      "id": "R3",
+      "question_id": "Q1",
+      "kind": "bonus",
+      "point": "With useLocalCache, a cached COMPLETED record makes saveInProgress() throw before touching the store; a responseHook can change the response that is returned."
+    },
+    {
+      "id": "R4",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "The payload is the whole event or the part selected by eventKeyJmesPath; it is key-sorted (deepSort), JSON-serialised, hashed (md5 by default, base64) and prefixed with the function name or keyPrefix and \"#\"."
+    },
+    {
+      "id": "R5",
+      "question_id": "Q2",
+      "kind": "bonus",
+      "point": "If the selected part is missing the layer warns, or throws IdempotencyKeyError when throwOnNoIdempotencyKey is set; when not throwing, the handler skips idempotency for that call."
+    },
+    {
+      "id": "R6",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "expiryTimestamp is when the record and its stored result expire, in seconds since the epoch (default one hour after saving); inProgressExpiryTimestamp is when an in-progress lock counts as abandoned, from the Lambda's remaining time, in milliseconds."
+    },
+    {
+      "id": "R7",
+      "question_id": "Q3",
+      "kind": "bonus",
+      "point": "The two use different units (seconds vs milliseconds), which is easy to get wrong; isExpired() compares Date.now() / 1000 with the seconds value."
+    },
+    {
+      "id": "R8",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "getHashedIdempotencyKey() hashes JSON.stringify(payload) without deepSort, so the key depends on the order of the payload's keys.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R9",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "The same request serialised with a different key order gets a different key, no existing record is found, and the function runs again: duplicate side effects.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R10",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "It only happens when the key order differs between attempts; byte-identical retries still deduplicate, so tests pass.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R11",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "Fix: JSON.stringify(deepSort(payload)), as getHashedPayload() does.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R12",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "Payload validation does not catch it: getHashedPayload() still sorts, but it only compares records found under the same key.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R13",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "(Real upstream code, not the seeded bug.) determineResultFromIdempotencyRecord() compares inProgressExpiryTimestamp with new Date().getUTCMilliseconds(), which is 0-999 rather than the current time, so the \"in progress expiry has passed\" branch never runs."
+    },
+    {
+      "id": "R14",
+      "question_id": "Q5",
+      "kind": "required",
+      "point": "A failed run must be retryable: deleting the record frees the key so the next attempt runs the function again; storing the failure would make every retry return the error until the record expired."
+    },
+    {
+      "id": "R15",
+      "question_id": "Q5",
+      "kind": "bonus",
+      "point": "If the delete itself fails, IdempotencyPersistenceLayerError is thrown and the INPROGRESS record blocks the key until its in-progress expiry."
+    },
+    {
+      "id": "R16",
+      "question_id": "Q6",
+      "kind": "required",
+      "point": "An INPROGRESS record can change elsewhere (completed or deleted by the invocation that owns it); a cached copy would keep this instance treating the key as in progress, or out of date."
+    },
+    {
+      "id": "R17",
+      "question_id": "Q6",
+      "kind": "bonus",
+      "point": "COMPLETED records are safe to serve from memory until they expire, and getFromCache() drops expired ones."
+    },
+    {
+      "id": "R18",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "Unit-test getRecordIdentity() / the key: the same object with keys in different orders (including nested objects) gives the same key; different values give different keys."
+    },
+    {
+      "id": "R19",
+      "question_id": "Q7",
+      "kind": "bonus",
+      "point": "Property-based tests that shuffle key order; tests with eventKeyJmesPath selecting a subset of the event."
+    },
+    {
+      "id": "R20",
+      "question_id": "Q8",
+      "kind": "required",
+      "point": "Today the second call gets IdempotencyAlreadyInProgressError. Better: wait and retry with backoff (or poll the record until it is COMPLETED) before failing, with the in-progress expiry tied to the function timeout."
+    },
+    {
+      "id": "R21",
+      "question_id": "Q8",
+      "kind": "bonus",
+      "point": "Return a clear \"in progress, retry later\" response (for an API, 409 or 202 with Retry-After) and count these conflicts in metrics."
+    }
+  ],
+  "grader_notes": [
+    "A line comment around persistence/BasePersistenceLayer.ts line 342 that explains the missing sort earns R8 to R10 even if Q4 is blank.",
+    "The getUTCMilliseconds() comparison in IdempotencyHandler.ts is real upstream code. Give R13 for spotting it; it is not a false positive and not the seeded bug."
+  ]
+}

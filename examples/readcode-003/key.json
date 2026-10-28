@@ -1,0 +1,161 @@
+{
+  "schema_version": 2,
+  "id": "readcode-003",
+  "version": 1,
+  "bugs": [
+    {
+      "id": "B1",
+      "title": "Backoff restarts from the first delay on every retry",
+      "pattern": "backoff-state-reset-per-retry",
+      "locations": [
+        {
+          "file": "RetryPolicy.ts",
+          "function": "execute",
+          "start_line": 133,
+          "end_line": 135
+        }
+      ],
+      "description": "execute() asks the factory for a fresh backoff on every retry (factory.next(context)) instead of advancing the one it already has (backoff.next(context)). The backoff variable is overwritten each time and never chained, so the sequence never moves past its first step.",
+      "runtime_failure": "Every retry waits only the first delay of the backoff: with ExponentialBackoff and the default decorrelated jitter that is a random value of roughly 0-180 ms, every time. The delay never grows and never reaches maxDelay, so during an outage each caller retries several times a second instead of backing off; with many callers this multiplies load on the failing service (a retry storm). retry() defaults maxAttempts to Infinity, so callers keep retrying fast until the service recovers or the call is cancelled.",
+      "conditions": "Only with a backoff that changes between attempts (ExponentialBackoff, IterableBackoff); with ConstantBackoff the result is identical. Only noticeable when a call fails several times in a row, i.e. during a sustained outage; tests with one or two failures and short delays pass.",
+      "fix": "Advance the existing backoff: backoff = backoff ? backoff.next(context) : factory.next(context)."
+    }
+  ],
+  "rubric": [
+    {
+      "id": "R1",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "Each attempt runs through executor.invoke(); a success is returned at once, and a handled failure comes back as { error } or { value } instead of throwing."
+    },
+    {
+      "id": "R2",
+      "question_id": "Q1",
+      "kind": "required",
+      "point": "While retries < maxAttempts and the signal is not aborted, it takes the next backoff (the first from factory.next, later ones from backoff.next), emits onRetry with the delay and attempt, waits the delay, and loops; on the third attempt the success is returned."
+    },
+    {
+      "id": "R3",
+      "question_id": "Q1",
+      "kind": "bonus",
+      "point": "When it gives up it emits onGiveUp, then throws the error or returns the failing value."
+    },
+    {
+      "id": "R4",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "ExecuteWrapper applies errorFilter to thrown errors and resultFilter to returned values; the filters come from handleAll, handleType, handleWhen and the or* methods."
+    },
+    {
+      "id": "R5",
+      "question_id": "Q2",
+      "kind": "required",
+      "point": "An error the filter does not handle is rethrown immediately: no retry, no onGiveUp, but onFailure fires with handled: false."
+    },
+    {
+      "id": "R6",
+      "question_id": "Q2",
+      "kind": "bonus",
+      "point": "A returned value that matches resultFilter is treated as a failure and retried; if retries run out it is returned (not thrown)."
+    },
+    {
+      "id": "R7",
+      "question_id": "Q3",
+      "kind": "required",
+      "point": "It returns [delay, nextState]; the state is [attempt + 1, the formula value], so the next delay depends on the attempt count and the previous value (decorrelated). The delay grows roughly with exponent^attempt, is scaled by initialDelay and capped at maxDelay."
+    },
+    {
+      "id": "R8",
+      "question_id": "Q3",
+      "kind": "bonus",
+      "point": "The random part (t = attempt + Math.random()) spreads callers out so they do not retry in lockstep; rpScalingFactor makes the median delays land near 1, 2, 4... multiples."
+    },
+    {
+      "id": "R9",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "execute() calls factory.next(context) on every retry instead of backoff.next(context), so the backoff starts over each time instead of advancing.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R10",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "Every retry therefore waits only the first, short delay; the wait never grows, so during an outage callers keep retrying quickly and pile load onto the failing service (retry storm).",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R11",
+      "question_id": "Q4",
+      "kind": "required",
+      "point": "It shows only with a growing backoff (e.g. ExponentialBackoff) and repeated failures; with ConstantBackoff or quick recovery it looks fine.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R12",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "Fix: backoff = backoff ? backoff.next(context) : factory.next(context).",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R13",
+      "question_id": "Q4",
+      "kind": "bonus",
+      "point": "retry() defaults maxAttempts to Infinity, so the fast retries continue until the service recovers or the call is cancelled.",
+      "bug_id": "B1"
+    },
+    {
+      "id": "R14",
+      "question_id": "Q5",
+      "kind": "required",
+      "point": "Each execute() call needs its own sequence; immutable backoffs let one shared policy run many concurrent calls without them interfering, and keep strategies (constant, exponential, custom) pluggable behind one interface."
+    },
+    {
+      "id": "R15",
+      "question_id": "Q5",
+      "kind": "bonus",
+      "point": "ConstantBackoff.next() can simply return this; the generators are pure functions of (state, options), which makes them easy to test."
+    },
+    {
+      "id": "R16",
+      "question_id": "Q6",
+      "kind": "required",
+      "point": "Before: do not start waiting if the call is already cancelled. After: delay() resolves early when the signal aborts, so check again and give up instead of making another call."
+    },
+    {
+      "id": "R17",
+      "question_id": "Q6",
+      "kind": "bonus",
+      "point": "delay() clears its timer and abort listener on either path, so cancelled calls do not leak timers."
+    },
+    {
+      "id": "R18",
+      "question_id": "Q7",
+      "kind": "required",
+      "point": "Record onRetry and onGiveUp as metrics (count, attempt number, delay) and compare the retry rate with the call rate; alert when it rises."
+    },
+    {
+      "id": "R19",
+      "question_id": "Q7",
+      "kind": "bonus",
+      "point": "Log or trace the delay per attempt for a call, which would show whether delays actually grow."
+    },
+    {
+      "id": "R20",
+      "question_id": "Q8",
+      "kind": "required",
+      "point": "A finite maxAttempts and an overall deadline per call, with exponential backoff plus jitter and a maxDelay cap."
+    },
+    {
+      "id": "R21",
+      "question_id": "Q8",
+      "kind": "bonus",
+      "point": "A shared retry budget (retries as a fraction of calls), a circuit breaker in front of the retries, or honouring Retry-After from the service."
+    }
+  ],
+  "grader_notes": [
+    "A line comment around RetryPolicy.ts line 134 that explains the reset earns R9 to R11 even if Q4 is blank.",
+    "Q3 asks about the generator itself; do not require the candidate to notice the bug there."
+  ]
+}

@@ -1,0 +1,78 @@
+import { FailureReason, IFailureEvent, ISuccessEvent } from '../Policy.js';
+import { EventEmitter } from './Event.js';
+
+export type FailureOrSuccess<R> = FailureReason<R> | { success: R };
+
+export const returnOrThrow = <R>(failure: FailureOrSuccess<R>) => {
+  if ('error' in failure) {
+    throw failure.error;
+  }
+
+  if ('success' in failure) {
+    return failure.success;
+  }
+
+  return failure.value;
+};
+
+declare const performance: { now(): number };
+
+const makeStopwatch = () => {
+  if (typeof performance !== 'undefined') {
+    const start = performance.now();
+    return () => performance.now() - start;
+  } else {
+    const start = process.hrtime.bigint();
+    return () => Number(process.hrtime.bigint() - start) / 1000000; // ns->ms
+  }
+};
+
+export class ExecuteWrapper {
+  private readonly successEmitter = new EventEmitter<ISuccessEvent>();
+  private readonly failureEmitter = new EventEmitter<IFailureEvent>();
+  public readonly onSuccess = this.successEmitter.addListener;
+  public readonly onFailure = this.failureEmitter.addListener;
+
+  constructor(
+    private readonly errorFilter: (error: unknown) => boolean = () => false,
+    private readonly resultFilter: (result: unknown) => boolean = () => false,
+  ) {}
+
+  public clone() {
+    return new ExecuteWrapper(this.errorFilter, this.resultFilter);
+  }
+
+  public async invoke<T extends unknown[], R>(
+    fn: (...args: T) => PromiseLike<R> | R,
+    ...args: T
+  ): Promise<FailureOrSuccess<R>> {
+    const stopwatch = this.successEmitter.size || this.failureEmitter.size ? makeStopwatch() : null;
+
+    try {
+      const value = await fn(...args);
+      if (!this.resultFilter(value)) {
+        if (stopwatch) {
+          this.successEmitter.emit({ duration: stopwatch() });
+        }
+        return { success: value };
+      }
+
+      if (stopwatch) {
+        this.failureEmitter.emit({ duration: stopwatch(), handled: true, reason: { value } });
+      }
+
+      return { value };
+    } catch (error) {
+      const handled = this.errorFilter(error);
+      if (stopwatch) {
+        this.failureEmitter.emit({ duration: stopwatch(), handled, reason: { error } });
+      }
+
+      if (!handled) {
+        throw error;
+      }
+
+      return { error };
+    }
+  }
+}

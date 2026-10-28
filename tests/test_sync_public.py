@@ -13,21 +13,26 @@ _spec.loader.exec_module(sp)
 def test_only_public_files_are_copied(tmp_path):
     out = tmp_path / "out"
     index = sp.sync(ROOT / "examples", out)
-    assert [e["id"] for e in index] == ["readcode-002"]
-    files = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
-    assert files == ["index.json", *[f"readcode-002/code/{f}" for f in
-                     ("async-fifo-queue.ts", "lock-manager.ts", "types.ts", "worker.ts")], "readcode-002/public.json"]
+    ids = [e["id"] for e in index]
+    assert ids == sorted(p.name for p in (ROOT / "examples").iterdir() if (p / "public.json").is_file())
+    files = {p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()}
+    expected = {"index.json"}
+    for ex in ids:
+        pub = json.loads((ROOT / "examples" / ex / "public.json").read_text())
+        expected |= {f"{ex}/public.json", *(f"{ex}/code/{f['path']}" for f in pub["files"])}
+    assert files == expected  # nothing else (no key.json, manifest.json, internal/)
 
 
 def test_key_content_never_reaches_the_frontend(tmp_path):
     out = tmp_path / "out"
     sp.sync(ROOT / "examples", out)
-    key = json.loads((ROOT / "examples" / "readcode-002" / "key.json").read_text())
     blob = "".join(p.read_text() for p in out.rglob("*.json"))
-    for b in key["bugs"]:
-        assert b["description"] not in blob and b["fix"] not in blob
-    for r in key["rubric"]:
-        assert r["point"] not in blob
+    for ex in (ROOT / "examples").iterdir():
+        key = json.loads((ex / "key.json").read_text())
+        for b in key["bugs"]:
+            assert b["description"] not in blob and b["fix"] not in blob
+        for r in key["rubric"]:
+            assert r["point"] not in blob
 
 
 def test_stray_files_in_code_are_not_copied(tmp_path):

@@ -148,10 +148,15 @@ per-concept page of examples later.
 5. Don't invent facts about licences, repos or tools. Say what is unverified.
 6. Licences: prefer MIT/BSD/Apache-2.0. Record SPDX + what was checked in `sources[].license_evidence`.
 
-## 9. Status (2026-10-26)
+## 9. Status (2026-10-27)
 
-- **readcode-002** (BullMQ worker, bug = `untrackJob` before `callProcessJob`) built through step 8: validator clean,
-  both compile checks pass, 22 pytest + 12 vitest tests pass. **Waiting for John's review (step 9).** Open points for
-  that review are in `manifest.review.notes`.
-- Pool: bullmq pinned; cockatiel and powertools-lambda-typescript need pinned commits and licence checks.
+| Example | Source | Tests | Bug | Lines |
+|---|---|---|---|---|
+| readcode-002 | BullMQ worker (MIT) | queues-consumers, at-least-once-delivery | `untrackJob` before `callProcessJob` (lock never renewed) | 980 |
+| readcode-003 | cockatiel RetryPolicy (MIT) | retries-backoff | backoff restarted from the factory on every retry (no growth) | 816 |
+| readcode-004 | Powertools idempotency (MIT-0) | api.idempotency | idempotency key hashed without `deepSort` (depends on key order) | 1,362 |
+
+All three: validator clean, both compile checks pass. **All waiting for John's review (step 9)**; open points are in
+each `manifest.review.notes` (all are over the 500-650 line target). readcode-004's real code contains an upstream bug
+(`getUTCMilliseconds()` used as "now" in `IdempotencyHandler.determineResultFromIdempotencyRecord`); the key credits it.
 - Not built: posting classifier, taxonomy file, bank/selection logic, grader for v2 keys, backend API.

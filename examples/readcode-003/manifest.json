@@ -1,0 +1,208 @@
+{
+  "schema_version": 2,
+  "id": "readcode-003",
+  "sources": [
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/RetryPolicy.ts",
+      "sha256": "ac9c9d865c591214121aa42648eb144e8efb6ffdbd8b4402ef3e4abfb9a48847",
+      "license_spdx": "MIT",
+      "license_evidence": "LICENSE at the commit: 'MIT License / Copyright (c) 2019 Connor Peet'; package.json \"license\": \"MIT\". Checked by Claude 2026-10-27; needs a human check.",
+      "code_path": "RetryPolicy.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/backoff/ExponentialBackoff.ts",
+      "sha256": "df0d7f60bcc5870051bef431d315c30a2c9bd7200fb7d94d5b0db62fc27aebf3",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "backoff/ExponentialBackoff.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/backoff/ExponentialBackoffGenerators.ts",
+      "sha256": "16e6be8ee81339313bb5a4bbc907ea9c05fee031928d52c58c7869448bc522cb",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "backoff/ExponentialBackoffGenerators.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/backoff/ConstantBackoff.ts",
+      "sha256": "d5fd310cfe6480747ee48748cf192298e64eefe2874dd8a4e8bb5c08a3e4d1ff",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "backoff/ConstantBackoff.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/backoff/Backoff.ts",
+      "sha256": "4fefc0fee8733bb3802e57dc0186972876503e295a4d03378d685b125f4dfe0c",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "backoff/Backoff.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/common/Executor.ts",
+      "sha256": "a17ba1450be185aa007bd1ad2218e5396bd83c9ac59cafe8ab7d225e9a4924b3",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "common/Executor.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/Policy.ts",
+      "sha256": "81780c6f61bcc9cb1729b3808c7dbbd53ebed5bac661178d731a74d834c1d5a9",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "Policy.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/common/Event.ts",
+      "sha256": "d95f9b05ee20bf87588f9572addbeff76272570268c79efcf4ac6c3ecd6a33db",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "common/Event.ts"
+    },
+    {
+      "repo": "https://github.com/connor4312/cockatiel",
+      "commit": "17a8b0224b63110da4e67cef3e888d9ba58bdd0f",
+      "path": "src/common/abort.ts",
+      "sha256": "77f7388181d106a6df6a3209217d7c44464be0d367990ffbaa25fddbdbb89c62",
+      "license_spdx": "MIT",
+      "license_evidence": "Covered by the repo LICENSE (MIT) above.",
+      "code_path": "common/abort.ts"
+    }
+  ],
+  "tests": [
+    "backend.resilience.retries-backoff"
+  ],
+  "present": [
+    "backend.resources.context-cancellation",
+    "backend.errors.error-propagation"
+  ],
+  "language": "typescript",
+  "level": "mid",
+  "origin": "adapted",
+  "bug_pattern": "backoff-state-reset-per-retry",
+  "license": "MIT",
+  "taxonomy_version": "backend-v0",
+  "baseline": {
+    "files": [
+      {
+        "path": "RetryPolicy.ts",
+        "sha256": "ac9c9d865c591214121aa42648eb144e8efb6ffdbd8b4402ef3e4abfb9a48847"
+      },
+      {
+        "path": "backoff/ExponentialBackoff.ts",
+        "sha256": "df0d7f60bcc5870051bef431d315c30a2c9bd7200fb7d94d5b0db62fc27aebf3"
+      },
+      {
+        "path": "backoff/ExponentialBackoffGenerators.ts",
+        "sha256": "16e6be8ee81339313bb5a4bbc907ea9c05fee031928d52c58c7869448bc522cb"
+      },
+      {
+        "path": "backoff/ConstantBackoff.ts",
+        "sha256": "d5fd310cfe6480747ee48748cf192298e64eefe2874dd8a4e8bb5c08a3e4d1ff"
+      },
+      {
+        "path": "backoff/Backoff.ts",
+        "sha256": "385c1d9fcb0e9ef116be90c96c07b8579620a3548576c544b2c3ccdb78c3bbfc"
+      },
+      {
+        "path": "common/Executor.ts",
+        "sha256": "a17ba1450be185aa007bd1ad2218e5396bd83c9ac59cafe8ab7d225e9a4924b3"
+      },
+      {
+        "path": "Policy.ts",
+        "sha256": "1720ea8321cc9d3a3ea9cb3f3b4a2356415c3a1affb4cbf0e88d809131cc663c"
+      },
+      {
+        "path": "common/Event.ts",
+        "sha256": "433b5c2f327ef69627ad265d1d0350bec2ae590b9a74e92c82355667feea1a00"
+      },
+      {
+        "path": "common/abort.ts",
+        "sha256": "77f7388181d106a6df6a3209217d7c44464be0d367990ffbaa25fddbdbb89c62"
+      }
+    ],
+    "changes_summary": "RetryPolicy.ts, ExponentialBackoff.ts, ExponentialBackoffGenerators.ts, ConstantBackoff.ts, Executor.ts and abort.ts are unchanged. Backoff.ts: re-exports of DelegateBackoff and IterableBackoff removed (not included). Event.ts: the Event namespace helpers (once, toPromise and the TaskCancelledError import) and MemorizingEventEmitter removed. Policy.ts: excerpt of the shared types (FailureReason, IFailureEvent, ISuccessEvent, IDefaultPolicyContext, IPolicy), the Policy filter builder without orResultType, handleAll/handleType/handleWhen and retry(); other policies (bulkhead, timeout, circuit breaker, fallback, wrap) and their imports removed.",
+    "compile_check": {
+      "passed": true,
+      "tool": "tsc 5.9.3",
+      "command": "tsc --noEmit -p internal/verification/tsconfig.json (files: RetryPolicy.ts, backoff/ExponentialBackoff.ts, backoff/ExponentialBackoffGenerators.ts, backoff/ConstantBackoff.ts, backoff/Backoff.ts, common/Executor.ts, Policy.ts, common/Event.ts, common/abort.ts)",
+      "evidence_file": "internal/evidence/compile_baseline.txt"
+    }
+  },
+  "shipped": {
+    "files": [
+      {
+        "path": "RetryPolicy.ts",
+        "sha256": "7d761ae8d6634b58550d76a89582a3a30d6f4dc9b28dd2445575582b648d975c"
+      },
+      {
+        "path": "backoff/ExponentialBackoff.ts",
+        "sha256": "df0d7f60bcc5870051bef431d315c30a2c9bd7200fb7d94d5b0db62fc27aebf3"
+      },
+      {
+        "path": "backoff/ExponentialBackoffGenerators.ts",
+        "sha256": "16e6be8ee81339313bb5a4bbc907ea9c05fee031928d52c58c7869448bc522cb"
+      },
+      {
+        "path": "backoff/ConstantBackoff.ts",
+        "sha256": "d5fd310cfe6480747ee48748cf192298e64eefe2874dd8a4e8bb5c08a3e4d1ff"
+      },
+      {
+        "path": "backoff/Backoff.ts",
+        "sha256": "385c1d9fcb0e9ef116be90c96c07b8579620a3548576c544b2c3ccdb78c3bbfc"
+      },
+      {
+        "path": "common/Executor.ts",
+        "sha256": "a17ba1450be185aa007bd1ad2218e5396bd83c9ac59cafe8ab7d225e9a4924b3"
+      },
+      {
+        "path": "Policy.ts",
+        "sha256": "1720ea8321cc9d3a3ea9cb3f3b4a2356415c3a1affb4cbf0e88d809131cc663c"
+      },
+      {
+        "path": "common/Event.ts",
+        "sha256": "433b5c2f327ef69627ad265d1d0350bec2ae590b9a74e92c82355667feea1a00"
+      },
+      {
+        "path": "common/abort.ts",
+        "sha256": "77f7388181d106a6df6a3209217d7c44464be0d367990ffbaa25fddbdbb89c62"
+      }
+    ],
+    "compile_check": {
+      "passed": true,
+      "tool": "tsc 5.9.3",
+      "command": "tsc --noEmit -p internal/verification/tsconfig.json (files: RetryPolicy.ts, backoff/ExponentialBackoff.ts, backoff/ExponentialBackoffGenerators.ts, backoff/ConstantBackoff.ts, backoff/Backoff.ts, common/Executor.ts, Policy.ts, common/Event.ts, common/abort.ts)",
+      "evidence_file": "internal/evidence/compile_shipped.txt"
+    }
+  },
+  "bugs": [
+    {
+      "id": "B1",
+      "file": "RetryPolicy.ts",
+      "line": 134,
+      "change": {
+        "old": "        backoff = backoff ? backoff.next(context) : factory.next(context);\n",
+        "new": "        backoff = factory.next(context);\n"
+      }
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "notes": "Built by Claude 2026-10-27 from the pool entry for cockatiel (concept chosen from the Amazon posting's top weights). For the reviewer: (1) 816 lines over 9 files, over the 500-650 target; Policy.ts (227) and Event.ts (143) are support code and could be trimmed further. (2) The bug only shows with a growing backoff (ExponentialBackoff); with ConstantBackoff it is invisible, which is realistic. (3) Kept cockatiel's folder layout (backoff/, common/) and its compiler settings (nodenext, strict, noUnused*). (4) Licence checked by Claude from LICENSE and package.json; needs a human check."
+  }
+}
