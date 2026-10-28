@@ -39,3 +39,13 @@
              backend.resilience.retries-backoff, backend.resilience.circuit-breakers]
   notes: The async/ folder has small, dependency-free, unchanged-usable files (pool.ts, channel.ts,
          retry.ts, unstable_semaphore.ts, unstable_circuit_breaker.ts). Good for junior-level examples.
+
+- id: cpython-asyncio
+  url: https://github.com/python/cpython
+  license: PSF-2.0   # permissive (BSD-style), but not MIT/BSD/Apache: needs a human decision
+  language: python
+  pinned_commit: 495fef1b4719be2f46dfe1409097cb91d770e56a   # used by examples/readcode-006
+  concepts: [backend.messaging.message-ordering, backend.messaging.backpressure,
+             backend.concurrency.async-await-pitfalls]
+  notes: Lib/asyncio/queues.py runs on its own after changing two relative imports. Other small,
+         readable candidates in Lib/asyncio/ (locks.py, timeouts.py) suit junior-level examples.

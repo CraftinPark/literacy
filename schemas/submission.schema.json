@@ -185,6 +185,88 @@
           }
         }
       }
+    },
+    "hints_used": {
+      "description": "Per question id, how many of its hints the candidate opened (they open in order).",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^Q[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 3
+      }
+    },
+    "question_results": {
+      "description": "Per question: submitted (answer locked, then self-checked against the answer's points) or conceded ('Show me the answer', 0 points).",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^Q[0-9]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "ticked"
+        ],
+        "properties": {
+          "state": {
+            "enum": [
+              "submitted",
+              "conceded"
+            ]
+          },
+          "ticked": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^R[0-9]+$"
+            }
+          }
+        }
+      }
+    },
+    "score": {
+      "description": "Self-checked score: required points ticked minus hint costs (never below 0 per question), as a percentage of all required points. Bonus points are counted separately.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "percent",
+        "required_met",
+        "required_total",
+        "bonus_met",
+        "bonus_total",
+        "hint_cost"
+      ],
+      "properties": {
+        "percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "required_met": {
+          "type": "number",
+          "minimum": 0
+        },
+        "required_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus_met": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bonus_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hint_cost": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
     }
   },
   "$defs": {

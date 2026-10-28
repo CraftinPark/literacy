@@ -39,6 +39,29 @@
       "minLength": 10,
       "description": "Shown before the questions: what the code is and what was stubbed out."
     },
+    "brief": {
+      "description": "The story behind the code: what it is for and the constraints it was built under, so design and improvement questions have a starting point.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "constraints"
+      ],
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "minLength": 20
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 10
+          }
+        }
+      }
+    },
     "language": {
       "enum": [
         "c",
@@ -152,6 +175,36 @@
           "text": {
             "type": "string",
             "minLength": 10
+          },
+          "report": {
+            "$ref": "#/$defs/bug_report"
+          },
+          "focus": {
+            "description": "For improvements questions: the section the question is about, given to the candidate.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "start_line",
+              "end_line"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "start_line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "end_line": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "hints": {
+            "description": "Nudges for questions other than bug questions (those keep theirs in report.hints). Each costs points when opened.",
+            "$ref": "#/$defs/bug_report/properties/hints"
           }
         }
       }
@@ -165,6 +218,84 @@
         "design",
         "improvements"
       ]
+    },
+    "bug_report": {
+      "description": "A bug report for a bugs-dimension question: the starting point for finding the bug. expected/observed are quoted from the scenario run (manifest.scenario evidence).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "context",
+        "steps",
+        "expected",
+        "observed",
+        "hints"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 5
+        },
+        "context": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Who saw what, where, in their words."
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 5
+          }
+        },
+        "expected": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "observed": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "hints": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "level",
+              "text",
+              "cost"
+            ],
+            "properties": {
+              "level": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              },
+              "text": {
+                "type": "string",
+                "minLength": 10
+              },
+              "cost": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Points taken off this question's score when the hint is opened."
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -32,7 +32,7 @@ def ex(tmp_path):
 def test_inject_reproduces_the_shipped_code(ex):
     shutil.rmtree(ex / "code")
     placed = ib.inject(ex)
-    assert placed == {"B1": ("worker.ts", 334)}
+    assert placed == {"B1": ("worker.ts", 334), "W1": ("async-fifo-queue.ts", 28)}
     for f in (EXAMPLE / "code").iterdir():
         assert (ex / "code" / f.name).read_text() == f.read_text()
 
@@ -63,3 +63,20 @@ def test_compile_check_fails_on_a_type_error(ex):
     man = json.loads((ex / "manifest.json").read_text())
     assert man["shipped"]["compile_check"]["passed"] is False
     assert "result: FAIL" in (ex / "internal" / "evidence" / "compile_shipped.txt").read_text()
+
+
+rs = _load("run_scenario")
+
+
+@needs_tsc
+def test_scenario_reproduces_the_bug_and_fails_when_it_should(tmp_path):
+    ex = tmp_path / "readcode-005"
+    shutil.copytree(ROOT / "examples" / "readcode-005", ex)
+    reproduced, outputs = rs.run(ex)
+    assert reproduced and "most calls running at the same time: 10" in outputs["shipped"]
+    assert "most calls running at the same time: 2" in outputs["baseline"]
+    # With the bug fixed in code/, both runs match: the tool must report no reproduction.
+    code = ex / "code" / "pool.ts"
+    code.write_text(code.read_text().replace("          Promise.race(executing);", "          await Promise.race(executing);"))
+    reproduced, _ = rs.run(ex)
+    assert reproduced is False

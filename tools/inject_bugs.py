@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build code/ from internal/baseline/ by applying the bugs recorded in manifest.json.
+"""Build code/ from internal/baseline/ by applying the bugs (and worsenings) recorded in manifest.json.
 
 Each manifest.bugs[].change.old must occur exactly once in the baseline file; it is
 replaced by change.new. The tool then records the line where change.new starts
@@ -29,7 +29,8 @@ def inject(ex):
     base = ex / "internal" / "baseline"
     texts = {f["path"]: (base / f["path"]).read_text() for f in man["baseline"]["files"]}
 
-    for b in man["bugs"]:
+    changes = man["bugs"] + man.get("worsenings", [])  # worsenings: same mechanism, no behaviour change
+    for b in changes:
         old, new = b["change"]["old"], b["change"]["new"]
         if b["file"] not in texts:
             raise InjectError(f"{b['id']}: {b['file']} is not a baseline file")
@@ -41,7 +42,7 @@ def inject(ex):
         texts[b["file"]] = text[:at] + new + text[at + len(old):]
         # Bugs applied later may shift lines, so lines are computed after all are applied (below).
 
-    for b in man["bugs"]:
+    for b in changes:
         text = texts[b["file"]]
         if text.count(b["change"]["new"]) != 1:
             raise InjectError(f"{b['id']}: change.new is not unique in the shipped {b['file']}; widen the context")
@@ -63,7 +64,7 @@ def inject(ex):
 
     man_p.write_text(json.dumps(man, indent=2) + "\n")
     pub_p.write_text(json.dumps(pub, indent=2) + "\n")
-    return {b["id"]: (b["file"], b["line"]) for b in man["bugs"]}
+    return {b["id"]: (b["file"], b["line"]) for b in changes}
 
 
 def main():

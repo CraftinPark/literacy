@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile check for TypeScript examples (pipeline steps 6 and 7).
+"""Compile check for TypeScript and Python examples (pipeline steps 6 and 7).
 
 Type-checks internal/baseline/ and code/ separately with `tsc --noEmit`, using the
 example's internal/verification/tsconfig.json and the pinned toolchain in tools/ts/.
@@ -52,12 +52,21 @@ def check_target(ex, folder, files, tsconfig):
     return r.returncode == 0, out
 
 
+def check_python(ex, folder, files):
+    """Compile every file with this Python's compiler (no bytecode written). Returns (passed, output)."""
+    code = "import sys\nfor f in sys.argv[1:]:\n    compile(open(f, encoding='utf-8').read(), f, 'exec')\n"
+    r = subprocess.run([sys.executable, "-c", code, *[str(ex / folder / f) for f in files]], capture_output=True, text=True)
+    return r.returncode == 0, (r.stdout + r.stderr).replace(str(ex), "<example>")
+
+
 def run(ex):
     ex = Path(ex).resolve()
     man_p = ex / "manifest.json"
     man = json.loads(man_p.read_text())
+    if man["language"] == "python":
+        return run_python(ex, man_p, man)
     if man["language"] != "typescript":
-        raise CompileCheckError(f"compile_check handles typescript only, not {man['language']}")
+        raise CompileCheckError(f"compile_check handles typescript and python, not {man['language']}")
     if not TSC.exists():
         raise CompileCheckError("TypeScript toolchain missing: run `npm install` in tools/ts")
     tsconfig = ex / "internal" / "verification" / "tsconfig.json"
@@ -82,6 +91,27 @@ def run(ex):
         (ex / evidence).write_text("\n".join(lines) + "\n")
         man[name]["files"] = pinned
         man[name]["compile_check"] = {"passed": passed, "tool": f"tsc {version}", "command": command, "evidence_file": evidence}
+        results[name] = (passed, out)
+    man_p.write_text(json.dumps(man, indent=2) + "\n")
+    return results
+
+
+def run_python(ex, man_p, man):
+    files = [f["path"] for f in man["baseline"]["files"]]
+    tool = f"python {sys.version.split()[0]} compile()"
+    command = "compile() each file (syntax check, no bytecode written) (files: " + ", ".join(files) + ")"
+    results = {}
+    for name, folder in TARGETS.items():
+        passed, out = check_python(ex, folder, files)
+        evidence = f"internal/evidence/compile_{name}.txt"
+        pinned = [{"path": f, "sha256": sha256(ex / folder / f)} for f in files]
+        lines = [f"target: {folder}/", f"tool: {tool}", f"command: {command}",
+                 *[f"file: {p['path']} sha256={p['sha256']}" for p in pinned],
+                 f"result: {'PASS' if passed else 'FAIL'}", "output:", out.rstrip() or "(none)"]
+        (ex / evidence).parent.mkdir(parents=True, exist_ok=True)
+        (ex / evidence).write_text("\n".join(lines) + "\n")
+        man[name]["files"] = pinned
+        man[name]["compile_check"] = {"passed": passed, "tool": tool, "command": command, "evidence_file": evidence}
         results[name] = (passed, out)
     man_p.write_text(json.dumps(man, indent=2) + "\n")
     return results

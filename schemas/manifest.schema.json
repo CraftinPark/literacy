@@ -4,115 +4,430 @@
   "title": "ReadCode provenance manifest (internal: sources, concepts, checks, review)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "sources", "tests", "present", "language", "level", "origin", "bug_pattern", "license", "taxonomy_version", "baseline", "shipped", "bugs", "review"],
+  "required": [
+    "schema_version",
+    "id",
+    "sources",
+    "tests",
+    "present",
+    "language",
+    "level",
+    "origin",
+    "bug_pattern",
+    "license",
+    "taxonomy_version",
+    "baseline",
+    "shipped",
+    "bugs",
+    "review"
+  ],
   "properties": {
-    "schema_version": {"const": 2},
-    "id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
+    "schema_version": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^readcode-[0-9]{3,}$"
+    },
     "sources": {
       "description": "Where the code came from. One entry per original file used.",
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["repo", "commit", "path", "sha256", "license_spdx", "license_evidence", "code_path"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "repo",
+          "commit",
+          "path",
+          "sha256",
+          "license_spdx",
+          "license_evidence",
+          "code_path"
+        ],
         "properties": {
-          "repo": {"type": "string", "format": "uri"},
-          "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-          "path": {"type": "string", "minLength": 1},
-          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Of the original file at that commit."},
-          "license_spdx": {"type": "string", "minLength": 1},
-          "license_evidence": {"type": "string", "minLength": 5, "description": "What was checked at the pinned commit, e.g. the LICENSE file's first line."},
-          "code_path": {"type": "string", "description": "The file under code/ it became (relative to code/)."}
+          "repo": {
+            "type": "string",
+            "format": "uri"
+          },
+          "commit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Of the original file at that commit."
+          },
+          "license_spdx": {
+            "type": "string",
+            "minLength": 1
+          },
+          "license_evidence": {
+            "type": "string",
+            "minLength": 5,
+            "description": "What was checked at the pinned commit, e.g. the LICENSE file's first line."
+          },
+          "code_path": {
+            "type": "string",
+            "description": "The file under code/ it became (relative to code/)."
+          }
         }
       }
     },
-    "tests": {"description": "Concept ids the example tests (has an injected bug and rubric points for).", "$ref": "#/$defs/concepts", "minItems": 1},
-    "present": {"description": "Concept ids that appear in the code but are not tested (tags).", "$ref": "#/$defs/concepts"},
-    "language": {"enum": ["c", "cpp", "python", "go", "rust", "java", "javascript", "typescript"]},
-    "level": {"enum": ["junior", "mid", "senior"]},
-    "origin": {"enum": ["real", "adapted", "generated"]},
-    "bug_pattern": {"type": "string", "pattern": "^[a-z0-9-]+$"},
-    "license": {"type": "string", "minLength": 1},
-    "taxonomy_version": {"type": "string", "minLength": 1},
+    "tests": {
+      "description": "Concept ids the example tests (has an injected bug and rubric points for).",
+      "$ref": "#/$defs/concepts",
+      "minItems": 1
+    },
+    "present": {
+      "description": "Concept ids that appear in the code but are not tested (tags).",
+      "$ref": "#/$defs/concepts"
+    },
+    "language": {
+      "enum": [
+        "c",
+        "cpp",
+        "python",
+        "go",
+        "rust",
+        "java",
+        "javascript",
+        "typescript"
+      ]
+    },
+    "level": {
+      "enum": [
+        "junior",
+        "mid",
+        "senior"
+      ]
+    },
+    "origin": {
+      "enum": [
+        "real",
+        "adapted",
+        "generated"
+      ]
+    },
+    "bug_pattern": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taxonomy_version": {
+      "type": "string",
+      "minLength": 1
+    },
     "baseline": {
       "description": "The clean version, after self-containing and before injecting bugs. Files live in internal/baseline/ at the same paths as in code/.",
-      "type": "object", "additionalProperties": false,
-      "required": ["files", "changes_summary", "compile_check"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files",
+        "changes_summary",
+        "compile_check"
+      ],
       "properties": {
-        "files": {"$ref": "#/$defs/pinned_files"},
-        "changes_summary": {"type": "string", "minLength": 10, "description": "How the originals were adapted (trimmed, stubbed)."},
-        "compile_check": {"$ref": "#/$defs/compile_check"}
+        "files": {
+          "$ref": "#/$defs/pinned_files"
+        },
+        "changes_summary": {
+          "type": "string",
+          "minLength": 10,
+          "description": "How the originals were adapted (trimmed, stubbed)."
+        },
+        "compile_check": {
+          "$ref": "#/$defs/compile_check"
+        }
       }
     },
     "shipped": {
       "description": "Exactly what is under code/. Editing it invalidates the compile check; rerun tools/compile_check.py.",
-      "type": "object", "additionalProperties": false,
-      "required": ["files", "compile_check"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files",
+        "compile_check"
+      ],
       "properties": {
-        "files": {"$ref": "#/$defs/pinned_files"},
-        "compile_check": {"$ref": "#/$defs/compile_check"}
+        "files": {
+          "$ref": "#/$defs/pinned_files"
+        },
+        "compile_check": {
+          "$ref": "#/$defs/compile_check"
+        }
       }
     },
     "bugs": {
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "file", "line", "change"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "file",
+          "line",
+          "change"
+        ],
         "properties": {
-          "id": {"type": "string", "pattern": "^B[0-9]+$"},
-          "file": {"type": "string"},
-          "line": {"type": "integer", "minimum": 1, "description": "Where change.new starts in the shipped file (written by tools/inject_bugs.py)."},
+          "id": {
+            "type": "string",
+            "pattern": "^B[0-9]+$"
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Where change.new starts in the shipped file (written by tools/inject_bugs.py)."
+          },
           "change": {
-            "type": "object", "additionalProperties": false,
-            "required": ["old", "new"],
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "old",
+              "new"
+            ],
             "properties": {
-              "old": {"type": "string", "minLength": 1, "description": "Clean text; occurs exactly once in the baseline file."},
-              "new": {"type": "string", "minLength": 1, "description": "Bugged text that replaces it."}
+              "old": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Clean text; occurs exactly once in the baseline file."
+              },
+              "new": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Bugged text that replaces it."
+              }
             }
           }
         }
       }
     },
-    "review": {
-      "type": "object", "additionalProperties": false,
-      "required": ["status"],
+    "worsenings": {
+      "description": "Code made worse on purpose (slower, more wasteful, harder to read) without changing behaviour; the basis for the improvements question. Applied by tools/inject_bugs.py like bugs.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "file",
+          "line",
+          "change"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^W[0-9]+$"
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "change": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "old",
+              "new"
+            ],
+            "properties": {
+              "old": {
+                "type": "string",
+                "minLength": 1
+              },
+              "new": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "scenario": {
+      "description": "Evidence for the bug report: tools/run_scenario.py ran internal/verification/scenario.ts on the baseline and on code/; the outputs must differ.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harness",
+        "reproduced",
+        "baseline_evidence",
+        "shipped_evidence"
+      ],
       "properties": {
-        "status": {"enum": ["pending", "changes_requested", "approved"]},
-        "reviewer": {"type": "string"},
-        "reviewed_at": {"type": "string", "format": "date-time"},
-        "notes": {"type": "string"}
+        "harness": {
+          "type": "string"
+        },
+        "reproduced": {
+          "type": "boolean"
+        },
+        "baseline_evidence": {
+          "type": "string"
+        },
+        "shipped_evidence": {
+          "type": "string"
+        },
+        "worsened_evidence": {
+          "type": "string"
+        },
+        "behaviour_preserved": {
+          "type": "boolean",
+          "description": "Baseline + worsenings only gives the same output as the baseline: the worsenings change no behaviour."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "pending",
+            "changes_requested",
+            "approved"
+          ]
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "notes": {
+          "type": "string"
+        }
       },
-      "if": {"properties": {"status": {"const": "approved"}}},
-      "then": {"required": ["reviewer", "reviewed_at"]}
+      "if": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "reviewer",
+          "reviewed_at"
+        ]
+      }
     }
   },
-  "if": {"properties": {"review": {"properties": {"status": {"const": "approved"}}, "required": ["status"]}}, "required": ["review"]},
+  "if": {
+    "properties": {
+      "review": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "required": [
+      "review"
+    ]
+  },
   "then": {
     "properties": {
-      "baseline": {"properties": {"compile_check": {"properties": {"passed": {"const": true}}}}},
-      "shipped": {"properties": {"compile_check": {"properties": {"passed": {"const": true}}}}}
+      "baseline": {
+        "properties": {
+          "compile_check": {
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "shipped": {
+        "properties": {
+          "compile_check": {
+            "properties": {
+              "passed": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {
     "concepts": {
-      "type": "array", "uniqueItems": true,
-      "items": {"type": "string", "pattern": "^[a-z0-9-]+\\.[a-z0-9-]+\\.[a-z0-9-]+$"}
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+\\.[a-z0-9-]+\\.[a-z0-9-]+$"
+      }
     },
     "pinned_files": {
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["path", "sha256"],
-        "properties": {"path": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
       }
     },
     "compile_check": {
-      "type": "object", "additionalProperties": false,
-      "required": ["passed", "tool", "command", "evidence_file"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passed",
+        "tool",
+        "command",
+        "evidence_file"
+      ],
       "properties": {
-        "passed": {"type": "boolean"},
-        "tool": {"type": "string", "description": "e.g. tsc 5.9.3"},
-        "command": {"type": "string"},
-        "evidence_file": {"type": "string", "description": "Relative to the example root."}
+        "passed": {
+          "type": "boolean"
+        },
+        "tool": {
+          "type": "string",
+          "description": "e.g. tsc 5.9.3"
+        },
+        "command": {
+          "type": "string"
+        },
+        "evidence_file": {
+          "type": "string",
+          "description": "Relative to the example root."
+        }
       }
     }
   }

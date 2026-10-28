@@ -103,10 +103,45 @@ readcode-NNN/
 - Undoing every recorded change on `code/` must give back the baseline exactly (validator enforces): no unrecorded edits.
 - `review.status`: pending -> changes_requested -> approved. Approval requires both compile checks passed (schema).
 
+**Bug reports and hints (2026-10-27, from a candidate's feedback: "needle in a haystack").** Each bugs question carries a
+`report` in `public.json`: title, the reporter's context, steps, **expected** and **observed** lines, and up to 3 tiered
+hints with point costs (1: area/file, 2: function, 3: lines). The expected/observed lines are quoted from a **scenario
+run**: `internal/verification/scenario.ts` drives the code with in-memory stand-ins and prints what a user would see;
+`tools/run_scenario.py` runs it on the baseline and on `code/` (compiled to CommonJS, run with Node), saves both outputs as
+evidence and sets `manifest.scenario.reproduced`. The validator requires every expected line in the baseline output and
+every observed line in the shipped output. Hints opened are saved as `hints_used` in the submission. Hints ship in
+`public.json` for now; once there is an API they should be served on request so their use can be enforced.
+
+**Question format (2026-10-27, after a candidate's feedback that every section needs a starting point).**
+- `brief` in `public.json`: what the code is for and the constraints it was built under (shown on Understand, and
+  collapsed on Design), so design questions are not guesswork.
+- Understanding questions are **anchored**: concrete traces with given inputs ("q = Queue(maxsize=2) ... what does each
+  call return?"), never traces that run through the seeded bug.
+- **Worsenings** (`manifest.worsenings`, `key.worsenings`, ids `W#`): code made slower or more wasteful on purpose
+  without changing behaviour, applied by `inject_bugs.py` like bugs. The improvements question gets a `focus` range
+  pointing at it (the candidate is told where; finding is only tested for bugs). `run_scenario.py` runs baseline +
+  worsenings only and the output must equal the baseline (`manifest.scenario.behaviour_preserved`). Each example keeps
+  one open improvements question as well.
+- **Python** examples: `compile_check.py` compiles with the tools' Python (no bytecode written) and `run_scenario.py`
+  runs `internal/verification/scenario.py` next to a copy of the files.
+
+**Per-question feedback (John, 2026-10-28).** Practice mode submits question by question, not at the end:
+- Every non-bug question has one `hints` entry in `public.json` (cost 0.5); bug questions keep their 3 in `report.hints`.
+- "Submit answer" locks the answer and shows its rubric points as a checklist the candidate ticks (self-check until an
+  LLM judge exists). "Show me the answer" concedes the question: 0 points, answer shown, "Try a variant" (disabled, later).
+- `key.reveal_after_bug`: questions whose answers would give the bug away; shown only once the bug question is done.
+- Score (`frontend/src/lib/score.ts`): per question, required points ticked minus hint costs (floor 0), conceded = 0;
+  exercise = % of all required points; bonus counted separately. "Finish exercise" shows the results screen.
+- **Exception to the public/key split:** `sync_public.py` writes `reveal.json` (rubric points only: no bug descriptions,
+  fixes or grader notes) next to `public.json`, so the browser can show answers. Anyone can read it; once there is an
+  API, answers must be served per question after submission. A mock-interview mode (no hints/answers, feedback at the
+  end) is planned.
+
 **Workflow to change an example:** edit `internal/baseline/` or `manifest.bugs`, then
 ```
 .venv/bin/python tools/inject_bugs.py examples/readcode-002
 .venv/bin/python tools/compile_check.py examples/readcode-002
+.venv/bin/python tools/run_scenario.py examples/readcode-002
 .venv/bin/python tools/validate_example.py --all examples/
 ```
 
@@ -159,8 +194,9 @@ per-concept page of examples later.
 | readcode-003 | cockatiel RetryPolicy (MIT) | retries-backoff | backoff restarted from the factory on every retry (no growth) | 816 |
 | readcode-004 | Powertools idempotency (MIT-0) | api.idempotency | idempotency key hashed without `deepSort` (depends on key order) | 1,362 |
 | readcode-005 | Deno std `pooledMap` (MIT), **junior**, unchanged file | messaging.backpressure | `Promise.race` not awaited when the pool is full (no backpressure) | 117 |
+| readcode-006 | CPython `asyncio/queues.py` (PSF-2.0), **junior**, **Python** | messaging.message-ordering | `_wakeup_next` wakes the newest waiter (`pop` not `popleft`) | 310 |
 
-All four: validator clean, both compile checks pass. **All waiting for John's review (step 9)**; open points are in
-each `manifest.review.notes` (002-004 are over the 500-650 line target; 005 is deliberately small for the junior level). readcode-004's real code contains an upstream bug
+All six: validator clean, both compile checks pass, scenario reproduces the bug, worsenings preserve behaviour. **All waiting for John's review (step 9)**; open points are in
+each `manifest.review.notes` (002-004 are over the 500-650 line target; 005 and 006 are small on purpose for the junior level; 006's PSF licence needs a decision). readcode-004's real code contains an upstream bug
 (`getUTCMilliseconds()` used as "now" in `IdempotencyHandler.determineResultFromIdempotencyRecord`); the key credits it.
 - Not built: posting classifier, taxonomy file, bank/selection logic, grader for v2 keys, backend API.

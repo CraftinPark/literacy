@@ -154,3 +154,41 @@ def test_concepts_must_match_the_manifest(ex, validators):
     pub["concepts"] = [c for c in pub["concepts"] if c["id"] != "backend.resilience.rate-limiting"]
     save(ex, "public", pub)
     assert "public shows" in errors(ex, validators)
+
+
+def test_bug_report_must_quote_the_scenario_output(ex, validators):
+    pub = load(ex, "public")
+    q = next(q for q in pub["questions"] if q.get("report"))
+    q["report"]["observed"][0] = "processor runs started for job-1: 7"
+    save(ex, "public", pub)
+    assert "observed line not in the scenario output" in errors(ex, validators)
+
+
+def test_bug_report_only_on_bug_questions(ex, validators):
+    pub = load(ex, "public")
+    report = next(q for q in pub["questions"] if q.get("report"))["report"]
+    pub["questions"][0]["report"] = report  # Q1 is an understanding question
+    save(ex, "public", pub)
+    assert "belongs on a question with dimension 'bugs'" in errors(ex, validators)
+
+
+def test_bug_report_needs_a_reproducing_scenario(ex, validators):
+    man = load(ex, "manifest")
+    man["scenario"]["reproduced"] = False
+    save(ex, "manifest", man)
+    assert "did not reproduce the bug" in errors(ex, validators)
+
+
+def test_focus_must_cover_the_worsening(ex, validators):
+    pub = load(ex, "public")
+    q = next(q for q in pub["questions"] if q.get("focus"))
+    q["focus"].update(start_line=1, end_line=5)
+    save(ex, "public", pub)
+    assert "does not cover any worsening" in errors(ex, validators)
+
+
+def test_worsening_that_changes_behaviour_is_rejected(ex, validators):
+    man = load(ex, "manifest")
+    man["scenario"]["behaviour_preserved"] = False
+    save(ex, "manifest", man)
+    assert "worsenings must be shown not to change behaviour" in errors(ex, validators)

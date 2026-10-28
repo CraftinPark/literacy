@@ -4,54 +4,222 @@
   "title": "ReadCode answer key and rubric (grader only, never sent to candidates)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "id", "version", "bugs", "rubric"],
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "bugs",
+    "rubric"
+  ],
   "properties": {
-    "schema_version": {"const": 2},
-    "id": {"type": "string", "pattern": "^readcode-[0-9]{3,}$"},
-    "version": {"type": "integer", "minimum": 1},
+    "schema_version": {
+      "const": 2
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^readcode-[0-9]{3,}$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
     "bugs": {
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "title", "pattern", "locations", "description", "runtime_failure", "conditions", "fix"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "pattern",
+          "locations",
+          "description",
+          "runtime_failure",
+          "conditions",
+          "fix"
+        ],
         "properties": {
-          "id": {"type": "string", "pattern": "^B[0-9]+$"},
-          "title": {"type": "string", "minLength": 5},
-          "pattern": {"type": "string", "pattern": "^[a-z0-9-]+$", "description": "Bug pattern slug; matches manifest.bug_pattern for single-bug examples."},
-          "locations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/range"}},
-          "description": {"type": "string", "minLength": 20, "description": "What is wrong, in terms of the code."},
-          "runtime_failure": {"type": "string", "minLength": 10, "description": "What goes wrong when it runs."},
-          "conditions": {"type": "string", "minLength": 10, "description": "When it shows up (and when it stays hidden)."},
-          "fix": {"type": "string", "minLength": 5}
+          "id": {
+            "type": "string",
+            "pattern": "^B[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5
+          },
+          "pattern": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Bug pattern slug; matches manifest.bug_pattern for single-bug examples."
+          },
+          "locations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/range"
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20,
+            "description": "What is wrong, in terms of the code."
+          },
+          "runtime_failure": {
+            "type": "string",
+            "minLength": 10,
+            "description": "What goes wrong when it runs."
+          },
+          "conditions": {
+            "type": "string",
+            "minLength": 10,
+            "description": "When it shows up (and when it stays hidden)."
+          },
+          "fix": {
+            "type": "string",
+            "minLength": 5
+          }
+        }
+      }
+    },
+    "worsenings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "locations",
+          "description",
+          "when_it_matters",
+          "better"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^W[0-9]+$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 5
+          },
+          "kind": {
+            "enum": [
+              "performance",
+              "resource-use",
+              "readability",
+              "duplication"
+            ]
+          },
+          "locations": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/range"
+            }
+          },
+          "description": {
+            "type": "string",
+            "minLength": 20
+          },
+          "when_it_matters": {
+            "type": "string",
+            "minLength": 10
+          },
+          "better": {
+            "type": "string",
+            "minLength": 10
+          }
         }
       }
     },
     "rubric": {
       "description": "Small checkable points. Every question has at least one required point.",
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["id", "question_id", "kind", "point"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "question_id",
+          "kind",
+          "point"
+        ],
         "properties": {
-          "id": {"type": "string", "pattern": "^R[0-9]+$"},
-          "question_id": {"type": "string", "pattern": "^Q[0-9]+$"},
-          "kind": {"enum": ["required", "bonus"]},
-          "point": {"type": "string", "minLength": 10},
-          "bug_id": {"type": "string", "pattern": "^B[0-9]+$", "description": "Set when the point is about a seeded bug; it can then also be earned from a line comment on that bug."}
+          "id": {
+            "type": "string",
+            "pattern": "^R[0-9]+$"
+          },
+          "question_id": {
+            "type": "string",
+            "pattern": "^Q[0-9]+$"
+          },
+          "kind": {
+            "enum": [
+              "required",
+              "bonus"
+            ]
+          },
+          "point": {
+            "type": "string",
+            "minLength": 10
+          },
+          "bug_id": {
+            "type": "string",
+            "pattern": "^B[0-9]+$",
+            "description": "Set when the point is about a seeded bug; it can then also be earned from a line comment on that bug."
+          },
+          "worsening_id": {
+            "type": "string",
+            "pattern": "^W[0-9]+$"
+          }
         }
       }
     },
-    "grader_notes": {"type": "array", "items": {"type": "string", "minLength": 5}}
+    "reveal_after_bug": {
+      "description": "Questions whose answers would give the bug away: their answers are only shown once the bug question has been submitted or conceded.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^Q[0-9]+$"
+      }
+    },
+    "grader_notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 5
+      }
+    }
   },
   "$defs": {
     "range": {
-      "type": "object", "additionalProperties": false,
-      "required": ["file", "start_line", "end_line"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "start_line",
+        "end_line"
+      ],
       "properties": {
-        "file": {"type": "string"},
-        "function": {"type": "string"},
-        "start_line": {"type": "integer", "minimum": 1},
-        "end_line": {"type": "integer", "minimum": 1}
+        "file": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "start_line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }

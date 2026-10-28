@@ -189,8 +189,9 @@ def check_consistency(rep, ex, pub, key, man):
         if os.path.isfile(p):
             baseline_text[f["path"]] = open(p, encoding="utf-8", errors="replace").read()
     key_bug = {b["id"]: b for b in key["bugs"]}
+    key_bug.update({w["id"]: w for w in key.get("worsenings", [])})
     reverted = dict(shipped_text)
-    for b in man["bugs"]:
+    for b in man["bugs"] + man.get("worsenings", []):
         where = f"manifest.bugs[{b['id']}]"
         lines = lines_of.get(b["file"])
         if lines is None:
@@ -207,7 +208,83 @@ def check_consistency(rep, ex, pub, key, man):
     # Undoing every recorded bug must give back the baseline exactly: no unrecorded differences.
     for path, text in reverted.items():
         if path in baseline_text and text != baseline_text[path]:
-            rep.err("baseline", f"{path}: code/ differs from the baseline by more than the recorded bugs")
+            rep.err("baseline", f"{path}: code/ differs from the baseline by more than the recorded bugs and worsenings")
+
+    # ---- question hints and answers held back until the bug question is done
+    bug_qs = {q["id"] for q in pub["questions"] if q["dimension"] == "bugs"}
+    for qid in key.get("reveal_after_bug", []):
+        if qid not in q_ids:
+            rep.err("key.reveal_after_bug", f"unknown question {qid}")
+        elif qid in bug_qs:
+            rep.err("key.reveal_after_bug", f"{qid} is a bug question; only other questions are held back")
+    for q in pub["questions"]:
+        if "hints" in q:
+            levels = [h["level"] for h in q["hints"]]
+            if levels != list(range(1, len(levels) + 1)):
+                rep.err(f"public.questions[{q['id']}].hints", f"hint levels must be 1, 2, 3 in order (got {levels})")
+            if q.get("report"):
+                rep.err(f"public.questions[{q['id']}].hints", "a bug question keeps its hints in report.hints")
+
+    # ---- worsenings: key <-> manifest, rubric points, the question that points at them
+    kw = {w["id"] for w in key.get("worsenings", [])}
+    mw = {w["id"]: w for w in man.get("worsenings", [])}
+    if kw != set(mw):
+        rep.err("worsenings", f"key lists {sorted(kw)} but manifest records {sorted(mw)}")
+    for r in key["rubric"]:
+        if "worsening_id" in r and r["worsening_id"] not in kw:
+            rep.err(f"key.rubric[{r['id']}]", f"unknown worsening {r['worsening_id']}")
+    for w in sorted(kw):
+        if not any(r.get("worsening_id") == w and r["kind"] == "required" for r in key["rubric"]):
+            rep.err("key.rubric", f"worsening {w} has no required rubric point")
+    for q in pub["questions"]:
+        f = q.get("focus")
+        if not f:
+            continue
+        where = f"public.questions[{q['id']}].focus"
+        if q["dimension"] != "improvements":
+            rep.err(where, "a focus range belongs on a question with dimension 'improvements'")
+        if f["file"] not in lines_of or not 1 <= f["start_line"] <= f["end_line"] <= len(lines_of[f["file"]]):
+            rep.err(where, f"lines {f['start_line']}-{f['end_line']} are not inside {f['file']}")
+        if not any(w["file"] == f["file"] and f["start_line"] <= w["line"] <= f["end_line"] for w in mw.values()):
+            rep.err(where, "does not cover any worsening the manifest records")
+    if mw:
+        sc = man.get("scenario") or {}
+        if sc.get("behaviour_preserved") is not True:
+            rep.err("manifest.scenario", "worsenings must be shown not to change behaviour (run tools/run_scenario.py)")
+
+    # ---- bug reports: only on bug questions, and every quoted line must come from the scenario run
+    def evidence_lines(rel):
+        p = os.path.join(ex, rel)
+        if not os.path.isfile(p):
+            rep.err("manifest.scenario", f"evidence file {rel} is missing")
+            return None
+        text = open(p, encoding="utf-8").read()
+        return set(text.split("output:\n", 1)[-1].splitlines())
+    for q in pub["questions"]:
+        r = q.get("report")
+        if not r:
+            continue
+        where = f"public.questions[{q['id']}].report"
+        if q["dimension"] != "bugs":
+            rep.err(where, "a bug report belongs on a question with dimension 'bugs'")
+        levels = [h["level"] for h in r["hints"]]
+        if levels != list(range(1, len(levels) + 1)):
+            rep.err(where, f"hint levels must be 1, 2, 3 in order (got {levels})")
+        if r["expected"] == r["observed"]:
+            rep.err(where, "expected and observed are identical")
+        sc = man.get("scenario")
+        if not sc:
+            rep.err(where, "has a bug report but the manifest has no scenario run (tools/run_scenario.py)")
+            continue
+        if not sc["reproduced"]:
+            rep.err("manifest.scenario", "the scenario did not reproduce the bug (baseline and shipped outputs are identical)")
+        for field, rel in (("expected", sc["baseline_evidence"]), ("observed", sc["shipped_evidence"])):
+            lines = evidence_lines(rel)
+            if lines is None:
+                continue
+            for line in r[field]:
+                if line not in lines:
+                    rep.err(where, f"{field} line not in the scenario output ({rel}): {line[:60]!r}")
 
     # ---- concepts shown to the candidate == everything the manifest says the example tests or contains
     shown = [c["id"] for c in pub["concepts"]]
