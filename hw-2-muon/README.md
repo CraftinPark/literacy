@@ -15,3 +15,19 @@
 - `_sim/` is the physical telescope. You can't open a PMT, so don't read, decompile or import it except through `bench.py` and `run_campaign.py`.
 
 The hut is not heated: about -15 C in January, +30 C in July. The campaign starts tomorrow and runs for a year with whatever you leave in `board/` and `muon/`; the students only look at the fits. Say "resolved" when you are done.
+
+
+## What to send back
+
+For each problem, send:
+
+1. Start and end time, and roughly how long you spent thinking versus waiting.
+`80min, 75% thinking 25% waiting`
+2. Which AI tools you used, and for what.
+`Claude code for comprehension, data analysis, brainstorming, and implementation.`
+3. How many runs you used (the budget counter shows it).
+`9.7819 out of 10 hours`
+4. Your final answer: the files you changed (`config.json` for MVP 14; `board/config.json` and `muon/analysis.py` for hw-2), or "not resolved".
+`See code.`
+5. Two or three sentences on how you approached it, and anything that confused you.
+`There is a lot of technical terms so I used Claude to help me understand the problem. Then I used Claude to brainstorm and analyze data from the runs. I consulted Claude until we came to a reasonable approach and then I asked it to go ahead and proceed. Sometimes I felt like it was not using enough hours or too many hours of the budget.`
