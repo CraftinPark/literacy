@@ -1,6 +1,8 @@
 {
-  "delay_a_ns": 0,
+  "delay_a_ns": 35,
   "delay_b_ns": 0,
   "width_a_ns": 20,
-  "width_b_ns": 20
+  "width_b_ns": 20,
+  "b_width_ns": 44.8,
+  "b_dead_time_ns": 1450
 }
